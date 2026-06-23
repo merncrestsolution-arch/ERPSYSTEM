@@ -1,0 +1,33 @@
+const { contextBridge, ipcRenderer } = require('electron');
+
+contextBridge.exposeInMainWorld('electronAPI', {
+  getProducts: () => ipcRenderer.invoke('get-products'),
+  addProduct: (product) => ipcRenderer.invoke('add-product', product),
+  getCustomers: () => ipcRenderer.invoke('get-customers'),
+  addCustomer: (customer) => ipcRenderer.invoke('add-customer', customer),
+  getSuppliers: () => ipcRenderer.invoke('get-suppliers'),
+  addSupplier: (supplier) => ipcRenderer.invoke('add-supplier', supplier),
+  getVehicles: () => ipcRenderer.invoke('get-vehicles'),
+  addVehicle: (vehicle) => ipcRenderer.invoke('add-vehicle', vehicle),
+  getGrns: () => ipcRenderer.invoke('get-grns'),
+  addGrn: (grnData) => ipcRenderer.invoke('add-grn', grnData),
+  getGrtns: () => ipcRenderer.invoke('get-grtns'),
+  addGrtn: (grtnData) => ipcRenderer.invoke('add-grtn', grtnData),
+  getStockAdjustments: () => ipcRenderer.invoke('get-stock-adjustments'),
+  addStockAdjustment: (adj) => ipcRenderer.invoke('add-stock-adjustment', adj),
+  getSales: () => ipcRenderer.invoke('get-sales'),
+  getSaleDetails: (id) => ipcRenderer.invoke('get-sale-details', id),
+  addSale: (saleData) => ipcRenderer.invoke('add-sale', saleData),
+  getCheques: () => ipcRenderer.invoke('get-cheques'),
+  addCheque: (chequeData) => ipcRenderer.invoke('add-cheque', chequeData),
+  updateChequeStatus: (data) => ipcRenderer.invoke('update-cheque-status', data),
+  getSupplierPayments: () => ipcRenderer.invoke('get-supplier-payments'),
+  addSupplierPayment: (paymentData) => ipcRenderer.invoke('add-supplier-payment', paymentData),
+  getReportData: () => ipcRenderer.invoke('get-report-data'),
+  getCloudSettings: () => ipcRenderer.invoke('get-cloud-settings'),
+  saveCloudSettings: (data) => ipcRenderer.invoke('save-cloud-settings', data),
+  syncToCloud: () => ipcRenderer.invoke('sync-to-cloud'),
+  getUsers: () => ipcRenderer.invoke('get-users'),
+  addUser: (userData) => ipcRenderer.invoke('add-user', userData),
+  deleteUser: (id) => ipcRenderer.invoke('delete-user', id)
+});
