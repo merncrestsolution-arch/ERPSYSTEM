@@ -96,16 +96,4 @@ function NavItem({ icon, label, path, currentPath, navigate }: { icon: React.Rea
   );
 }
 
-function StatCard({ title, value, trend, alert = false }: { title: string, value: string, trend: string, alert?: boolean }) {
-  return (
-    <div className={`bg-white rounded-lg p-6 shadow-sm border ${alert ? 'border-red-200' : 'border-slate-200'}`}>
-      <h3 className="text-slate-500 text-sm font-medium mb-2">{title}</h3>
-      <div className="flex items-end justify-between">
-        <span className="text-3xl font-bold text-slate-800">{value}</span>
-        <span className={`text-sm font-medium ${trend.startsWith('+') ? 'text-green-600' : trend.startsWith('-') ? 'text-red-600' : 'text-slate-500'}`}>
-          {trend}
-        </span>
-      </div>
-    </div>
-  );
-}
+

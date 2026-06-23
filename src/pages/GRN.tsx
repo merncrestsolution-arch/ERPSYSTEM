@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { Plus, Search, Edit2, Trash2, Package } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Plus, Search, Trash2, Package } from 'lucide-react';
 
 export default function GRN() {
   const [grns, setGrns] = useState<any[]>([]);

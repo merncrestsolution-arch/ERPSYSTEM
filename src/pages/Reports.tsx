@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { BarChart, TrendingUp, AlertCircle, ShoppingBag, DollarSign, Calendar } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { BarChart, TrendingUp, AlertCircle, ShoppingBag, DollarSign } from 'lucide-react';
 
 export default function Reports() {
   const [data, setData] = useState<any>(null);
