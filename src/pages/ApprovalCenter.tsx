@@ -25,13 +25,17 @@ export default function ApprovalCenter() {
         // Filter based on role logic
         let filtered = data;
         
-        // Complex workflow logic:
+        // Items are created with a single 'Pending Approval' status (sales over
+        // credit limit, plus pending GRN/GRTN). Final authorizers (Director/Admin)
+        // sign these off. Staged statuses are matched too for forward compatibility.
         if (user?.role === 'Accountant') {
-          // Accountant approves things pending their stage
           filtered = data.filter((item: any) => item.status === 'Pending Accountant');
         } else if (user?.role === 'Director') {
-          // Director approves things pending their stage
-          filtered = data.filter((item: any) => item.status === 'Pending Director' || item.status === 'Pending');
+          filtered = data.filter((item: any) =>
+            item.status === 'Pending Director' ||
+            item.status === 'Pending' ||
+            item.status === 'Pending Approval'
+          );
         } else if (user?.role === 'Store Manager') {
           filtered = data.filter((item: any) => item.status === 'Pending Store Manager');
         } else if (user?.role === 'Admin') {

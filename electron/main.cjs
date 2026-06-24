@@ -186,8 +186,8 @@ app.whenReady().then(() => {
     const db = getDatabase();
     const transaction = db.transaction((data) => {
       // Create Sale
-      const saleStmt = db.prepare('INSERT INTO sales (customer_id, invoice_number, sale_type, total_amount, discount, net_amount) VALUES (?, ?, ?, ?, ?, ?)');
-      const saleResult = saleStmt.run(data.customer_id, data.invoice_number, data.sale_type, data.total_amount, data.discount, data.net_amount);
+      const saleStmt = db.prepare('INSERT INTO sales (customer_id, invoice_number, sale_type, total_amount, discount, net_amount, status) VALUES (?, ?, ?, ?, ?, ?, ?)');
+      const saleResult = saleStmt.run(data.customer_id, data.invoice_number, data.sale_type, data.total_amount, data.discount, data.net_amount, data.status || 'Completed');
       const saleId = saleResult.lastInsertRowid;
 
       // Defer stock/balance effects while the sale awaits approval; they are
