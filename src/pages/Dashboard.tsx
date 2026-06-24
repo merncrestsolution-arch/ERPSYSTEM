@@ -99,13 +99,22 @@ export default function Dashboard() {
         {/* Header */}
         <header className="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-8 shadow-sm z-10">
           <h2 className="text-xl font-semibold text-slate-800"></h2>
-          <div className="flex items-center space-x-4">
-            <div className="text-sm text-right">
-              <p className="font-medium text-slate-700">{user?.full_name || 'System User'}</p>
-              <p className="text-slate-500">{user?.role || 'Guest'}</p>
-            </div>
-            <div className="h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center text-blue-700 font-bold uppercase">
-              {user?.username?.substring(0, 2) || 'GU'}
+          <div className="flex items-center space-x-6">
+            <a 
+              href="/erp-app.apk" 
+              download="ERP_System.apk"
+              className="flex items-center gap-2 bg-emerald-100 text-emerald-800 hover:bg-emerald-200 px-4 py-2 rounded-full font-semibold transition-colors text-sm border border-emerald-200 shadow-sm"
+            >
+              Download Mobile App (APK)
+            </a>
+            <div className="flex items-center space-x-4">
+              <div className="text-sm text-right">
+                <p className="font-medium text-slate-700">{user?.full_name || 'System User'}</p>
+                <p className="text-slate-500">{user?.role || 'Guest'}</p>
+              </div>
+              <div className="h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center text-blue-700 font-bold uppercase">
+                {user?.username?.substring(0, 2) || 'GU'}
+              </div>
             </div>
           </div>
         </header>
