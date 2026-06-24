@@ -92,7 +92,7 @@ export default function Sales() {
   };
 
   const subTotal = saleItems.reduce((sum, item) => sum + (item.quantity * item.selling_price), 0);
-  const netAmount = subTotal - (discount || 0);
+  const netAmount = subTotal - (subTotal * (discount || 0) / 100);
 
   const handleSaveSale = async (e: React.FormEvent) => {
     e.preventDefault();
