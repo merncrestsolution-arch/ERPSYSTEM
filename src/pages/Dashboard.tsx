@@ -25,6 +25,7 @@ export default function Dashboard() {
   const location = useLocation();
   const { user, logout, hasRole } = useAuth();
   const [isSidebarOpen, setSidebarOpen] = useState(false);
+  const [apkUrl, setApkUrl] = useState('/erp-app.apk');
 
   const toggleSidebar = () => setSidebarOpen(!isSidebarOpen);
 
@@ -37,9 +38,29 @@ export default function Dashboard() {
     return () => document.body.classList.remove('overflow-hidden');
   }, [isSidebarOpen]);
 
+  useEffect(() => {
+    const loadVersion = async () => {
+      try {
+        const res = await fetch('/version.json');
+        if (!res.ok) return;
+        const data = await res.json();
+        if (data?.apkUrl) {
+          setApkUrl(data.apkUrl);
+        }
+      } catch (e) {
+        console.warn('version check failed', e);
+      }
+    };
+    loadVersion();
+  }, []);
+
   const handleLogout = () => {
     logout();
     navigate('/login');
+  };
+
+  const handleUpdateApk = () => {
+    window.open(apkUrl || '/erp-app.apk', '_blank');
   };
 
   return (
@@ -131,15 +152,15 @@ export default function Dashboard() {
             <h2 className="text-lg md:text-xl font-semibold text-slate-800 truncate">ERP SYSTEM</h2>
           </div>
           <div className="flex items-center space-x-3 md:space-x-6">
-            <a 
-              href="/erp-app.apk" 
-              download="ERP_System.apk"
-              className="hidden md:flex items-center gap-2 bg-emerald-100 text-emerald-800 hover:bg-emerald-200 px-4 py-2 rounded-full font-semibold transition-colors text-sm border border-emerald-200 shadow-sm"
-              title="Download Mobile App"
+            <button
+              onClick={handleUpdateApk}
+              className="flex items-center gap-2 bg-emerald-100 text-emerald-800 hover:bg-emerald-200 px-3 md:px-4 py-2 rounded-full font-semibold transition-colors text-sm border border-emerald-200 shadow-sm"
+              title="Update / Download Mobile App"
             >
               <Download size={18} />
-              <span>Download Mobile App (APK)</span>
-            </a>
+              <span className="hidden md:inline">Update Mobile App (APK)</span>
+              <span className="md:hidden">Update App</span>
+            </button>
             <div className="flex items-center space-x-2 md:space-x-4">
               <div className="text-sm text-right hidden sm:block">
                 <p className="font-medium text-slate-700">{user?.full_name || 'System User'}</p>
