@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { supabaseAPI } from '../lib/supabaseClient';
 
 export default function Login() {
   const navigate = useNavigate();
@@ -13,45 +12,29 @@ export default function Login() {
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
-    
+
+    const cleanedUsername = username.trim();
+
     try {
-      const cleanedUsername = username.trim();
+      // `window.electronAPI` is the desktop IPC bridge (preload) on Electron and
+      // the Supabase shim on web/mobile (see main.tsx). Both expose loginUser
+      // returning a user object or null.
       // @ts-ignore
-      if (window.electronAPI) {
-        // @ts-ignore
-        const user = await window.electronAPI.loginUser({ username: cleanedUsername, password });
-        if (user) {
-          login(user);
-          navigate('/dashboard');
-        } else {
-          setError('Invalid username or password');
-        }
+      const api = window.electronAPI;
+      if (!api) {
+        setError('Login service is unavailable. Please reload the app.');
+        return;
+      }
+
+      const user = await api.loginUser({ username: cleanedUsername, password });
+      if (user && user.role) {
+        login(user);
+        navigate('/dashboard');
       } else {
-        // Web/PWA: use Supabase if configured
-        const hasSupabase = Boolean(import.meta.env.VITE_SUPABASE_URL && import.meta.env.VITE_SUPABASE_ANON_KEY);
-        if (hasSupabase) {
-          const { user, error: supaErr } = await supabaseAPI.loginUser({ username: cleanedUsername, password });
-          if (supaErr) {
-            setError(`Login error: ${supaErr.message || 'Supabase authentication failed'}`);
-            return;
-          }
-          if (!user) {
-            setError('Invalid username or password');
-            return;
-          }
-          login(user);
-          navigate('/dashboard');
-        } else {
-          // Dev fallback only
-          if (cleanedUsername === 'admin' && password === 'admin123') {
-            login({ id: 1, username: 'admin', role: 'Admin', full_name: 'Admin User' });
-            navigate('/dashboard');
-          } else {
-            setError('Invalid credentials (configure Supabase or run in desktop app).');
-          }
-        }
+        setError('Invalid username or password');
       }
     } catch (err) {
+      console.error('Login failed:', err);
       setError('Login failed due to a system error.');
     }
   };
