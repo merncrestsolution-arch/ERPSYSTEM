@@ -110,29 +110,29 @@ app.whenReady().then(() => {
 
   ipcMain.handle('get-grtns', () => {
     const db = getDatabase();
-    return db.prepare('SELECT g.*, s.name as supplier_name FROM grtns g JOIN suppliers s ON g.supplier_id = s.id').all();
+    return db.prepare('SELECT g.*, c.shop_name as customer_name FROM grtns g JOIN customers c ON g.customer_id = c.id').all();
   });
 
   ipcMain.handle('add-grtn', (event, grtnData) => {
     const db = getDatabase();
     const transaction = db.transaction((data) => {
       // Create GRTN
-      const grtnStmt = db.prepare('INSERT INTO grtns (supplier_id, grtn_number, reason, total_amount) VALUES (?, ?, ?, ?)');
-      const grtnResult = grtnStmt.run(data.supplier_id, data.grtn_number, data.reason, data.total_amount);
+      const grtnStmt = db.prepare('INSERT INTO grtns (customer_id, grtn_number, reason, total_amount) VALUES (?, ?, ?, ?)');
+      const grtnResult = grtnStmt.run(data.customer_id, data.grtn_number, data.reason, data.total_amount);
       const grtnId = grtnResult.lastInsertRowid;
 
-      // Add Items and Update Stock (Deduct)
+      // Add Items and Update Stock (Add back)
       const itemStmt = db.prepare('INSERT INTO grtn_items (grtn_id, product_id, quantity, cost_price, total_price) VALUES (?, ?, ?, ?, ?)');
-      const stockStmt = db.prepare('UPDATE products SET stock_quantity = stock_quantity - ? WHERE id = ?');
+      const stockStmt = db.prepare('UPDATE products SET stock_quantity = stock_quantity + ? WHERE id = ?');
       
       for (const item of data.items) {
         itemStmt.run(grtnId, item.product_id, item.quantity, item.cost_price, item.total_price);
         stockStmt.run(item.quantity, item.product_id);
       }
 
-      // Update Supplier Balance (deduct return value)
-      const supStmt = db.prepare('UPDATE suppliers SET balance = balance - ? WHERE id = ?');
-      supStmt.run(data.total_amount, data.supplier_id);
+      // Update Customer Balance (deduct return value)
+      const custStmt = db.prepare('UPDATE customers SET outstanding_balance = outstanding_balance - ? WHERE id = ?');
+      custStmt.run(data.total_amount, data.customer_id);
 
       return grtnId;
     });
@@ -188,17 +188,19 @@ app.whenReady().then(() => {
       const saleResult = saleStmt.run(data.customer_id, data.invoice_number, data.sale_type, data.total_amount, data.discount, data.net_amount);
       const saleId = saleResult.lastInsertRowid;
 
-      // Add Items and Update Stock
+      // Add Items and Update Stock (only if not Pending Approval)
       const itemStmt = db.prepare('INSERT INTO sale_items (sale_id, product_id, quantity, selling_price, total_price) VALUES (?, ?, ?, ?, ?)');
       const stockStmt = db.prepare('UPDATE products SET stock_quantity = stock_quantity - ? WHERE id = ?');
       
       for (const item of data.items) {
         itemStmt.run(saleId, item.product_id, item.quantity, item.selling_price, item.total_price);
-        stockStmt.run(item.quantity, item.product_id);
+        if (data.status !== 'Pending Approval') {
+          stockStmt.run(item.quantity, item.product_id);
+        }
       }
 
-      // Update Customer Outstanding Balance if Credit Sale
-      if (data.sale_type === 'Credit') {
+      // Update Customer Outstanding Balance if Credit Sale and not Pending Approval
+      if (data.sale_type === 'Credit' && data.status !== 'Pending Approval') {
         const custStmt = db.prepare('UPDATE customers SET outstanding_balance = outstanding_balance + ? WHERE id = ?');
         custStmt.run(data.net_amount, data.customer_id);
       }
@@ -354,8 +356,9 @@ app.whenReady().then(() => {
     const grns = db.prepare('SELECT id, grn_number as reference, total_amount as amount, status, "GRN" as type, created_at FROM grns WHERE status LIKE "Pending%"').all();
     const cheques = db.prepare('SELECT id, cheque_number as reference, amount, status, "Cheque" as type, created_at FROM cheques WHERE status LIKE "Pending%"').all();
     const grtns = db.prepare('SELECT id, grtn_number as reference, total_amount as amount, status, "GRTN" as type, created_at FROM grtns WHERE status LIKE "Pending%"').all();
+    const sales = db.prepare('SELECT id, invoice_number as reference, net_amount as amount, status, "Sale" as type, created_at FROM sales WHERE status LIKE "Pending%"').all();
     
-    return [...grns, ...cheques, ...grtns].sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+    return [...grns, ...cheques, ...grtns, ...sales].sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
   });
 
   ipcMain.handle('approve-item', (event, { id, type, newStatus }) => {
@@ -366,6 +369,25 @@ app.whenReady().then(() => {
       db.prepare('UPDATE cheques SET status = ? WHERE id = ?').run(newStatus, id);
     } else if (type === 'GRTN') {
       db.prepare('UPDATE grtns SET status = ? WHERE id = ?').run(newStatus, id);
+    } else if (type === 'Sale') {
+      const transaction = db.transaction(() => {
+        db.prepare('UPDATE sales SET status = ? WHERE id = ?').run(newStatus, id);
+        
+        if (newStatus === 'Approved' || newStatus === 'Completed') {
+          const sale = db.prepare('SELECT * FROM sales WHERE id = ?').get(id);
+          const items = db.prepare('SELECT * FROM sale_items WHERE sale_id = ?').all(id);
+          
+          const stockStmt = db.prepare('UPDATE products SET stock_quantity = stock_quantity - ? WHERE id = ?');
+          for (const item of items) {
+            stockStmt.run(item.quantity, item.product_id);
+          }
+          
+          if (sale.sale_type === 'Credit') {
+            db.prepare('UPDATE customers SET outstanding_balance = outstanding_balance + ? WHERE id = ?').run(sale.net_amount, sale.customer_id);
+          }
+        }
+      });
+      transaction();
     }
     return true;
   });

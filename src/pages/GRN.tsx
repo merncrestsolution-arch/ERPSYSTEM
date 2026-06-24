@@ -135,15 +135,15 @@ export default function GRN() {
   };
 
   return (
-    <div className="p-8 w-full h-full flex flex-col">
-      <div className="flex justify-between items-center mb-6">
+    <div className="p-4 md:p-8 w-full h-full flex flex-col">
+      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 mb-6">
         <div>
           <h2 className="text-2xl font-bold text-slate-800">Goods Received Note (GRN)</h2>
           <p className="text-slate-500">Record and edit incoming stock.</p>
         </div>
         <button 
           onClick={openAddModal}
-          className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md font-medium flex items-center gap-2 shadow-sm transition-colors"
+          className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md font-medium flex items-center justify-center gap-2 shadow-sm transition-colors w-full sm:w-auto"
         >
           <Plus size={20} />
           Create GRN
@@ -152,7 +152,7 @@ export default function GRN() {
 
       <div className="bg-white rounded-lg border border-slate-200 shadow-sm flex-1 flex flex-col overflow-hidden">
         <div className="p-4 border-b border-slate-200 flex justify-between items-center bg-slate-50">
-          <div className="relative w-96">
+          <div className="relative w-full sm:w-96">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
             <input 
               type="text" 
@@ -206,14 +206,14 @@ export default function GRN() {
       </div>
 
       {isModalOpen && (
-        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center z-50">
+        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-lg shadow-xl w-full max-w-4xl max-h-[90vh] flex flex-col overflow-hidden">
-            <div className="px-6 py-4 border-b border-slate-200 flex justify-between items-center bg-blue-50">
+            <div className="px-6 py-4 border-b border-slate-200 flex justify-between items-center bg-blue-50 shrink-0">
               <h3 className="text-lg font-bold text-blue-900">{editingId ? 'Edit GRN' : 'Create Goods Received Note'}</h3>
               <button onClick={() => setModalOpen(false)} className="text-slate-400 hover:text-slate-600">✕</button>
             </div>
-            <div className="p-6 overflow-y-auto flex-1">
-              <div className="grid grid-cols-2 gap-6 mb-6">
+            <div className="p-4 sm:p-6 overflow-y-auto flex-1">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 mb-6">
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-1">Supplier</label>
                   <select 
@@ -237,49 +237,51 @@ export default function GRN() {
                 <button onClick={handleAddItem} type="button" className="text-sm text-blue-600 hover:text-blue-700 font-medium">+ Add Item Line</button>
               </div>
 
-              <table className="w-full text-left border-collapse border border-slate-200 rounded-md overflow-hidden">
-                <thead className="bg-slate-50 border-b border-slate-200">
-                  <tr>
-                    <th className="px-4 py-2 text-xs font-semibold text-slate-600">Product</th>
-                    <th className="px-4 py-2 text-xs font-semibold text-slate-600 w-32">Qty Received</th>
-                    <th className="px-4 py-2 text-xs font-semibold text-slate-600 w-40">Cost Price (LKR)</th>
-                    <th className="px-4 py-2 text-xs font-semibold text-slate-600 w-40">Line Total</th>
-                    <th className="px-4 py-2 w-10"></th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {grnItems.map((item, index) => (
-                    <tr key={index} className="border-b border-slate-200">
-                      <td className="p-2">
-                        <select 
-                          value={item.product_id}
-                          onChange={e => updateItem(index, 'product_id', e.target.value)}
-                          className="w-full px-2 py-1 border border-slate-300 rounded outline-none"
-                          required
-                        >
-                          <option value="">Select Product...</option>
-                          {products.map(p => <option key={p.id} value={p.id}>{p.name} (Stock: {p.stock_quantity})</option>)}
-                        </select>
-                      </td>
-                      <td className="p-2">
-                        <input type="number" min="1" value={item.quantity} onChange={e => updateItem(index, 'quantity', parseInt(e.target.value) || 0)} className="w-full px-2 py-1 border border-slate-300 rounded outline-none" />
-                      </td>
-                      <td className="p-2">
-                        <input type="number" step="0.01" value={item.cost_price} onChange={e => updateItem(index, 'cost_price', parseFloat(e.target.value) || 0)} className="w-full px-2 py-1 border border-slate-300 rounded outline-none" />
-                      </td>
-                      <td className="p-2 font-medium text-slate-700">
-                        LKR {(item.quantity * item.cost_price).toFixed(2)}
-                      </td>
-                      <td className="p-2">
-                        <button onClick={() => removeItem(index)} type="button" className="text-red-500 hover:text-red-700"><Trash2 size={16}/></button>
-                      </td>
+              <div className="overflow-x-auto border border-slate-200 rounded-md">
+                <table className="w-full text-left border-collapse">
+                  <thead className="bg-slate-50 border-b border-slate-200">
+                    <tr>
+                      <th className="px-4 py-2 text-xs font-semibold text-slate-600 min-w-[200px]">Product</th>
+                      <th className="px-4 py-2 text-xs font-semibold text-slate-600 min-w-[100px]">Qty Received</th>
+                      <th className="px-4 py-2 text-xs font-semibold text-slate-600 min-w-[120px]">Cost Price (LKR)</th>
+                      <th className="px-4 py-2 text-xs font-semibold text-slate-600 min-w-[120px]">Line Total</th>
+                      <th className="px-4 py-2 w-10"></th>
                     </tr>
-                  ))}
-                  {grnItems.length === 0 && (
-                    <tr><td colSpan={5} className="p-4 text-center text-sm text-slate-500">No items added. Click "+ Add Item Line".</td></tr>
-                  )}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody>
+                    {grnItems.map((item, index) => (
+                      <tr key={index} className="border-b border-slate-200">
+                        <td className="p-2">
+                          <select 
+                            value={item.product_id}
+                            onChange={e => updateItem(index, 'product_id', e.target.value)}
+                            className="w-full px-2 py-1 border border-slate-300 rounded outline-none"
+                            required
+                          >
+                            <option value="">Select Product...</option>
+                            {products.map(p => <option key={p.id} value={p.id}>{p.name} (Stock: {p.stock_quantity})</option>)}
+                          </select>
+                        </td>
+                        <td className="p-2">
+                          <input type="number" min="1" value={item.quantity} onChange={e => updateItem(index, 'quantity', parseInt(e.target.value) || 0)} className="w-full px-2 py-1 border border-slate-300 rounded outline-none" />
+                        </td>
+                        <td className="p-2">
+                          <input type="number" step="0.01" value={item.cost_price} onChange={e => updateItem(index, 'cost_price', parseFloat(e.target.value) || 0)} className="w-full px-2 py-1 border border-slate-300 rounded outline-none" />
+                        </td>
+                        <td className="p-2 font-medium text-slate-700">
+                          LKR {(item.quantity * item.cost_price).toFixed(2)}
+                        </td>
+                        <td className="p-2">
+                          <button onClick={() => removeItem(index)} type="button" className="text-red-500 hover:text-red-700"><Trash2 size={16}/></button>
+                        </td>
+                      </tr>
+                    ))}
+                    {grnItems.length === 0 && (
+                      <tr><td colSpan={5} className="p-4 text-center text-sm text-slate-500">No items added. Click "+ Add Item Line".</td></tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
               <div className="mt-4 text-right">
                 <p className="text-lg font-bold text-slate-800">
                   Total: LKR {grnItems.reduce((sum, item) => sum + (item.quantity * item.cost_price), 0).toFixed(2)}

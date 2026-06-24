@@ -39,8 +39,8 @@ export default function Login() {
   };
 
   return (
-    <div className="flex h-screen w-full items-center justify-center bg-slate-100">
-      <div className="w-full max-w-md bg-white rounded-lg shadow-xl p-8 border border-slate-200">
+    <div className="flex h-screen w-full items-center justify-center bg-slate-100 p-4">
+      <div className="w-full max-w-md bg-white rounded-lg shadow-xl p-6 sm:p-8 border border-slate-200">
         <div className="text-center mb-8">
           <h1 className="text-3xl font-bold text-slate-800">ERP System</h1>
           <p className="text-sm text-slate-500 mt-2">Sign in to your account</p>

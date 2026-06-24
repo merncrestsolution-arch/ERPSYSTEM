@@ -77,7 +77,7 @@ export default function Sales() {
         setEditingSaleId(sale.id);
         setCustomerId(details.customer_id.toString());
         setSaleType(details.sale_type);
-        setDiscount(details.discount);
+        setDiscount(details.total_amount ? (details.discount / details.total_amount) * 100 : 0);
         setSaleItems(details.items.map((i: any) => ({
           product_id: i.product_id.toString(),
           quantity: i.quantity,
@@ -92,7 +92,8 @@ export default function Sales() {
   };
 
   const subTotal = saleItems.reduce((sum, item) => sum + (item.quantity * item.selling_price), 0);
-  const netAmount = subTotal - (subTotal * (discount || 0) / 100);
+  const discountAmount = subTotal * ((discount || 0) / 100);
+  const netAmount = subTotal - discountAmount;
 
   const handleSaveSale = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -133,7 +134,7 @@ export default function Sales() {
       sale_type: saleType,
       status: finalStatus,
       total_amount: subTotal,
-      discount: discount || 0,
+      discount: discountAmount,
       net_amount: netAmount,
       items: saleItems.map(item => ({
         product_id: parseInt(item.product_id),
@@ -163,15 +164,15 @@ export default function Sales() {
   };
 
   return (
-    <div className="p-8 w-full h-full flex flex-col">
-      <div className="flex justify-between items-center mb-6">
+    <div className="p-4 md:p-8 w-full h-full flex flex-col">
+      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 mb-6">
         <div>
           <h2 className="text-2xl font-bold text-slate-800">Sales & Invoicing</h2>
           <p className="text-slate-500">Create new sales, edit invoices, and manage customer credit.</p>
         </div>
         <button 
           onClick={openAddModal}
-          className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md font-medium flex items-center gap-2 shadow-sm transition-colors"
+          className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md font-medium flex items-center justify-center gap-2 shadow-sm transition-colors w-full sm:w-auto"
         >
           <Plus size={20} />
           New Sale
@@ -180,7 +181,7 @@ export default function Sales() {
 
       <div className="bg-white rounded-lg border border-slate-200 shadow-sm flex-1 flex flex-col overflow-hidden">
         <div className="p-4 border-b border-slate-200 flex justify-between items-center bg-slate-50">
-          <div className="relative w-96">
+          <div className="relative w-full sm:w-96">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
             <input 
               type="text" 
@@ -243,17 +244,17 @@ export default function Sales() {
       </div>
 
       {isModalOpen && (
-        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center z-50">
+        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-lg shadow-xl w-full max-w-5xl max-h-[90vh] flex flex-col overflow-hidden">
-            <div className="px-6 py-4 border-b border-slate-200 flex justify-between items-center bg-blue-50">
+            <div className="px-6 py-4 border-b border-slate-200 flex justify-between items-center bg-blue-50 shrink-0">
               <h3 className="text-xl font-bold text-blue-900 flex items-center gap-2">
                 <ShoppingCart /> {editingSaleId ? 'Edit Sale / Bill' : 'Point of Sale Checkout'}
               </h3>
               <button onClick={() => setModalOpen(false)} className="text-slate-400 hover:text-slate-600">✕</button>
             </div>
-            <div className="p-6 overflow-y-auto flex-1 flex gap-6">
+            <div className="p-4 sm:p-6 overflow-y-auto flex-1 flex flex-col lg:flex-row gap-6">
               {/* Left Column: Items */}
-              <div className="flex-1">
+              <div className="flex-1 overflow-x-auto">
                 <div className="mb-4 flex justify-between items-center">
                   <h4 className="font-semibold text-slate-800 flex items-center gap-2">Sale Items</h4>
                   <button onClick={handleAddItem} type="button" className="text-sm bg-slate-100 text-blue-600 px-3 py-1 rounded hover:bg-slate-200 font-medium">+ Add Item Line</button>
@@ -311,7 +312,7 @@ export default function Sales() {
               </div>
 
               {/* Right Column: Checkout Info */}
-              <div className="w-80 bg-slate-50 p-4 rounded-lg border border-slate-200 flex flex-col">
+              <div className="w-full lg:w-80 bg-slate-50 p-4 rounded-lg border border-slate-200 flex flex-col shrink-0">
                 <h4 className="font-semibold text-slate-800 mb-4 border-b pb-2 flex items-center gap-2"><UserCheck size={18}/> Customer Details</h4>
                 <div className="mb-4">
                   <label className="block text-sm font-medium text-slate-700 mb-1">Select Customer</label>
@@ -339,9 +340,15 @@ export default function Sales() {
                     <span>LKR {subTotal.toFixed(2)}</span>
                   </div>
                   <div className="flex justify-between items-center text-slate-600">
-                    <span className="flex items-center gap-1"><Percent size={14}/> Discount:</span>
+                    <span className="flex items-center gap-1"><Percent size={14}/> Discount (%):</span>
                     <input type="number" step="0.01" value={discount} onChange={e => setDiscount(parseFloat(e.target.value) || 0)} className="w-24 px-2 py-1 border border-slate-300 rounded text-right outline-none" />
                   </div>
+                  {discount > 0 && (
+                    <div className="flex justify-between text-slate-500 text-sm">
+                      <span>Discount Amount:</span>
+                      <span>- LKR {discountAmount.toFixed(2)}</span>
+                    </div>
+                  )}
                   <div className="flex justify-between text-xl font-bold text-slate-800 pt-2 border-t border-slate-200">
                     <span>Total:</span>
                     <span>LKR {netAmount.toFixed(2)}</span>

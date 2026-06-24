@@ -89,15 +89,15 @@ export default function Products() {
   };
 
   return (
-    <div className="p-8 w-full h-full flex flex-col">
-      <div className="flex justify-between items-center mb-6">
+    <div className="p-4 md:p-8 w-full h-full flex flex-col">
+      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 mb-6">
         <div>
           <h2 className="text-2xl font-bold text-slate-800">Product Management</h2>
           <p className="text-slate-500">Manage your inventory, prices, and stock.</p>
         </div>
         <button 
           onClick={openAddModal}
-          className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md font-medium flex items-center gap-2 shadow-sm transition-colors"
+          className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md font-medium flex items-center justify-center gap-2 shadow-sm transition-colors w-full sm:w-auto"
         >
           <Plus size={20} />
           Add Product
@@ -107,7 +107,7 @@ export default function Products() {
       <div className="bg-white rounded-lg border border-slate-200 shadow-sm flex-1 flex flex-col overflow-hidden">
         {/* Toolbar */}
         <div className="p-4 border-b border-slate-200 flex justify-between items-center bg-slate-50">
-          <div className="relative w-96">
+          <div className="relative w-full sm:w-96">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
             <input 
               type="text" 
@@ -165,13 +165,13 @@ export default function Products() {
       </div>
 
       {isModalOpen && (
-        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg shadow-xl w-full max-w-lg overflow-hidden">
-            <div className="px-6 py-4 border-b border-slate-200 flex justify-between items-center">
+        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
+            <div className="px-6 py-4 border-b border-slate-200 flex justify-between items-center sticky top-0 bg-white z-10">
               <h3 className="text-lg font-bold text-slate-800">{editingId ? 'Edit Product' : 'Add New Product'}</h3>
               <button onClick={() => setModalOpen(false)} className="text-slate-400 hover:text-slate-600">✕</button>
             </div>
-            <form onSubmit={handleSaveProduct} className="p-6 space-y-4">
+            <form onSubmit={handleSaveProduct} className="p-4 sm:p-6 space-y-4">
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">Product Name</label>
                 <input required type="text" value={name} onChange={e => setName(e.target.value)} className="w-full px-3 py-2 border border-slate-300 rounded-md" />
@@ -180,7 +180,7 @@ export default function Products() {
                 <label className="block text-sm font-medium text-slate-700 mb-1">Barcode</label>
                 <input type="text" value={barcode} onChange={e => setBarcode(e.target.value)} className="w-full px-3 py-2 border border-slate-300 rounded-md" />
               </div>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-1">Selling Price (LKR)</label>
                   <input required type="number" step="0.01" value={sellingPrice} onChange={e => setSellingPrice(e.target.value)} className="w-full px-3 py-2 border border-slate-300 rounded-md" />

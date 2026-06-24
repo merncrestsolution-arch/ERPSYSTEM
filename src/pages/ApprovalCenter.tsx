@@ -82,8 +82,8 @@ export default function ApprovalCenter() {
   if (loading) return <div className="p-8">Loading approvals...</div>;
 
   return (
-    <div className="p-8">
-      <div className="flex justify-between items-center mb-8">
+    <div className="p-4 md:p-8">
+      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 mb-8">
         <div>
           <h1 className="text-2xl font-bold text-slate-800">Approval Center</h1>
           <p className="text-slate-500">Review and authorize pending transactions</p>
@@ -103,55 +103,58 @@ export default function ApprovalCenter() {
             No pending items require your approval at this time.
           </div>
         ) : (
-          <table className="w-full text-left border-collapse">
-            <thead>
-              <tr className="bg-slate-50 border-b border-slate-200 text-slate-600 text-sm">
-                <th className="p-4 font-medium">Type</th>
-                <th className="p-4 font-medium">Reference No.</th>
-                <th className="p-4 font-medium">Amount</th>
-                <th className="p-4 font-medium">Current Status</th>
-                <th className="p-4 font-medium text-right">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {items.map((item) => (
-                <tr key={`${item.type}-${item.id}`} className="hover:bg-slate-50 transition-colors">
-                  <td className="p-4">
-                    <span className={`px-2 py-1 rounded text-xs font-semibold
-                      ${item.type === 'GRN' ? 'bg-blue-100 text-blue-700' : ''}
-                      ${item.type === 'GRTN' ? 'bg-orange-100 text-orange-700' : ''}
-                      ${item.type === 'Cheque' ? 'bg-purple-100 text-purple-700' : ''}
-                    `}>
-                      {item.type}
-                    </span>
-                  </td>
-                  <td className="p-4 font-medium text-slate-800">{item.reference}</td>
-                  <td className="p-4">Rs {item.amount.toLocaleString(undefined, {minimumFractionDigits: 2})}</td>
-                  <td className="p-4">
-                    <span className="text-amber-600 text-sm font-medium flex items-center gap-1">
-                      <Clock size={14} /> {item.status}
-                    </span>
-                  </td>
-                  <td className="p-4 flex gap-2 justify-end">
-                    <button 
-                      onClick={() => handleAction(item, 'Reject')}
-                      className="p-2 text-red-500 hover:bg-red-50 rounded transition-colors"
-                      title="Reject"
-                    >
-                      <XCircle size={20} />
-                    </button>
-                    <button 
-                      onClick={() => handleAction(item, 'Approve')}
-                      className="p-2 text-green-500 hover:bg-green-50 rounded transition-colors"
-                      title="Approve / Forward to Next Stage"
-                    >
-                      <CheckCircle size={20} />
-                    </button>
-                  </td>
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse">
+              <thead>
+                <tr className="bg-slate-50 border-b border-slate-200 text-slate-600 text-sm">
+                  <th className="p-4 font-medium whitespace-nowrap">Type</th>
+                  <th className="p-4 font-medium whitespace-nowrap">Reference No.</th>
+                  <th className="p-4 font-medium whitespace-nowrap">Amount</th>
+                  <th className="p-4 font-medium whitespace-nowrap">Current Status</th>
+                  <th className="p-4 font-medium text-right whitespace-nowrap">Actions</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {items.map((item) => (
+                  <tr key={`${item.type}-${item.id}`} className="hover:bg-slate-50 transition-colors">
+                    <td className="p-4 whitespace-nowrap">
+                      <span className={`px-2 py-1 rounded text-xs font-semibold
+                        ${item.type === 'GRN' ? 'bg-blue-100 text-blue-700' : ''}
+                        ${item.type === 'GRTN' ? 'bg-orange-100 text-orange-700' : ''}
+                        ${item.type === 'Cheque' ? 'bg-purple-100 text-purple-700' : ''}
+                        ${item.type === 'Sale' ? 'bg-emerald-100 text-emerald-700' : ''}
+                      `}>
+                        {item.type}
+                      </span>
+                    </td>
+                    <td className="p-4 font-medium text-slate-800 whitespace-nowrap">{item.reference}</td>
+                    <td className="p-4 whitespace-nowrap">Rs {item.amount.toLocaleString(undefined, {minimumFractionDigits: 2})}</td>
+                    <td className="p-4 whitespace-nowrap">
+                      <span className="text-amber-600 text-sm font-medium flex items-center gap-1">
+                        <Clock size={14} /> {item.status}
+                      </span>
+                    </td>
+                    <td className="p-4 flex gap-2 justify-end whitespace-nowrap">
+                      <button 
+                        onClick={() => handleAction(item, 'Reject')}
+                        className="p-2 text-red-500 hover:bg-red-50 rounded transition-colors"
+                        title="Reject"
+                      >
+                        <XCircle size={20} />
+                      </button>
+                      <button 
+                        onClick={() => handleAction(item, 'Approve')}
+                        className="p-2 text-green-500 hover:bg-green-50 rounded transition-colors"
+                        title="Approve / Forward to Next Stage"
+                      >
+                        <CheckCircle size={20} />
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         )}
       </div>
     </div>

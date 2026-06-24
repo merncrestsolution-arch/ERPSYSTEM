@@ -33,7 +33,7 @@ export default function DashboardHome() {
 // --------------------------------------------------------
 function AdminDashboard() {
   return (
-    <div className="p-8 space-y-8 fade-in">
+    <div className="p-4 md:p-8 space-y-8 fade-in">
       <div>
         <h2 className="text-2xl font-bold text-slate-800">System Overview (Admin)</h2>
         <p className="text-slate-500">Complete bird's-eye view of all operations.</p>
@@ -90,7 +90,7 @@ function AdminDashboard() {
 // --------------------------------------------------------
 function DirectorDashboard() {
   return (
-    <div className="p-8 space-y-8 fade-in">
+    <div className="p-4 md:p-8 space-y-8 fade-in">
       <div>
         <h2 className="text-2xl font-bold text-slate-800">Business Performance (Director)</h2>
         <p className="text-slate-500">Financial insights and high-level KPIs.</p>
@@ -144,7 +144,7 @@ function DirectorDashboard() {
 // --------------------------------------------------------
 function AccountantDashboard() {
   return (
-    <div className="p-8 space-y-8 fade-in">
+    <div className="p-4 md:p-8 space-y-8 fade-in">
       <div>
         <h2 className="text-2xl font-bold text-slate-800">Financial Center (Accountant)</h2>
         <p className="text-slate-500">Cash, banks, and ledgers.</p>
@@ -183,7 +183,7 @@ function AccountantDashboard() {
 // --------------------------------------------------------
 function StoreManagerDashboard() {
   return (
-    <div className="p-8 space-y-8 fade-in">
+    <div className="p-4 md:p-8 space-y-8 fade-in">
       <div>
         <h2 className="text-2xl font-bold text-slate-800">Warehouse Operations (Store Manager)</h2>
         <p className="text-slate-500">Inventory flow and stock health.</p>
@@ -220,7 +220,7 @@ function StoreManagerDashboard() {
 // --------------------------------------------------------
 function SalesOfficerDashboard() {
   return (
-    <div className="p-8 space-y-8 fade-in">
+    <div className="p-4 md:p-8 space-y-8 fade-in">
       <div>
         <h2 className="text-2xl font-bold text-slate-800">Sales Hub (Sales Officer)</h2>
         <p className="text-slate-500">Your daily targets and customer metrics.</p>
@@ -242,7 +242,7 @@ function SalesOfficerDashboard() {
 // --------------------------------------------------------
 function DriverDashboard() {
   return (
-    <div className="p-8 space-y-8 fade-in">
+    <div className="p-4 md:p-8 space-y-8 fade-in">
       <div>
         <h2 className="text-2xl font-bold text-slate-800">Delivery Route (Driver)</h2>
       </div>

@@ -72,8 +72,8 @@ export default function CloudSync() {
   };
 
   return (
-    <div className="p-8 w-full h-full flex flex-col bg-slate-50">
-      <div className="flex justify-between items-center mb-8">
+    <div className="p-4 md:p-8 w-full h-full flex flex-col bg-slate-50">
+      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 mb-8">
         <div>
           <h2 className="text-2xl font-bold text-slate-800 flex items-center gap-2">
             <Cloud className="text-blue-600" /> Cloud Synchronization
@@ -87,7 +87,7 @@ export default function CloudSync() {
         )}
       </div>
 
-      <div className="grid grid-cols-2 gap-8 max-w-5xl">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-8 max-w-5xl">
         
         {/* Settings Panel */}
         <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">

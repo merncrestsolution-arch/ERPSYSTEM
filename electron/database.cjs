@@ -101,7 +101,7 @@ function initDatabase() {
 
       CREATE TABLE IF NOT EXISTS grtns (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
-        supplier_id INTEGER NOT NULL,
+        customer_id INTEGER,
         grtn_number TEXT UNIQUE NOT NULL,
         reason TEXT,
         total_amount REAL DEFAULT 0,
@@ -202,6 +202,14 @@ function initDatabase() {
     try {
       db.exec("ALTER TABLE users ADD COLUMN full_name TEXT");
     } catch(e) {}
+
+    try {
+      db.exec("ALTER TABLE grtns RENAME COLUMN supplier_id TO customer_id;");
+    } catch(e) {
+      try {
+        db.exec("ALTER TABLE grtns ADD COLUMN customer_id INTEGER;");
+      } catch(e2) {}
+    }
 
     
     console.log('Database initialized successfully.');

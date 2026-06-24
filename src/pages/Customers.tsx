@@ -97,15 +97,15 @@ export default function Customers() {
   };
 
   return (
-    <div className="p-8 w-full h-full flex flex-col">
-      <div className="flex justify-between items-center mb-6">
+    <div className="p-4 md:p-8 w-full h-full flex flex-col">
+      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 mb-6">
         <div>
           <h2 className="text-2xl font-bold text-slate-800">Customer Management</h2>
           <p className="text-slate-500">Manage shops, outstanding balances, and routes.</p>
         </div>
         <button 
           onClick={openAddModal}
-          className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md font-medium flex items-center gap-2 shadow-sm transition-colors"
+          className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md font-medium flex items-center justify-center gap-2 shadow-sm transition-colors w-full sm:w-auto"
         >
           <Plus size={20} />
           Add Customer
@@ -115,7 +115,7 @@ export default function Customers() {
       <div className="bg-white rounded-lg border border-slate-200 shadow-sm flex-1 flex flex-col overflow-hidden">
         {/* Toolbar */}
         <div className="p-4 border-b border-slate-200 flex justify-between items-center bg-slate-50">
-          <div className="relative w-96">
+          <div className="relative w-full sm:w-96">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
             <input 
               type="text" 
@@ -187,14 +187,14 @@ export default function Customers() {
       </div>
 
       {isModalOpen && (
-        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg shadow-xl w-full max-w-2xl overflow-hidden">
-            <div className="px-6 py-4 border-b border-slate-200 flex justify-between items-center">
+        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+            <div className="px-6 py-4 border-b border-slate-200 flex justify-between items-center sticky top-0 bg-white z-10">
               <h3 className="text-lg font-bold text-slate-800">{editingId ? 'Edit Customer' : 'Register New Customer'}</h3>
               <button onClick={() => setModalOpen(false)} className="text-slate-400 hover:text-slate-600">✕</button>
             </div>
-            <form onSubmit={handleSaveCustomer} className="p-6 space-y-4">
-              <div className="grid grid-cols-2 gap-4">
+            <form onSubmit={handleSaveCustomer} className="p-4 sm:p-6 space-y-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-1">Shop Name</label>
                   <input required type="text" value={shopName} onChange={e => setShopName(e.target.value)} className="w-full px-3 py-2 border border-slate-300 rounded-md" />
@@ -204,7 +204,7 @@ export default function Customers() {
                   <input required type="text" value={ownerName} onChange={e => setOwnerName(e.target.value)} className="w-full px-3 py-2 border border-slate-300 rounded-md" />
                 </div>
               </div>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-1">Contact Number</label>
                   <input required type="text" value={contactNumber} onChange={e => setContactNumber(e.target.value)} className="w-full px-3 py-2 border border-slate-300 rounded-md" />

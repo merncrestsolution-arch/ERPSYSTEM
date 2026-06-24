@@ -69,23 +69,23 @@ export default function Inventory() {
   };
 
   return (
-    <div className="p-8 w-full h-full flex flex-col">
-      <div className="flex justify-between items-center mb-6">
+    <div className="p-4 md:p-8 w-full h-full flex flex-col">
+      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 mb-6">
         <div>
           <h2 className="text-2xl font-bold text-slate-800">Inventory & Adjustments</h2>
           <p className="text-slate-500">Track stock levels and make manual inventory corrections.</p>
         </div>
         <button 
           onClick={() => setAddModalOpen(true)}
-          className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md font-medium flex items-center gap-2 shadow-sm transition-colors"
+          className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md font-medium flex items-center justify-center gap-2 shadow-sm transition-colors w-full sm:w-auto"
         >
           <Plus size={20} />
           New Adjustment
         </button>
       </div>
 
-      <div className="grid grid-cols-3 gap-6 mb-8">
-        <div className="bg-white p-6 rounded-lg shadow-sm border border-slate-200">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 md:gap-6 mb-8">
+        <div className="bg-white p-4 sm:p-6 rounded-lg shadow-sm border border-slate-200">
           <div className="flex items-center gap-3 mb-2 text-slate-600 font-medium">
             <Layers className="text-blue-500" /> Total Stock Value
           </div>
@@ -93,7 +93,7 @@ export default function Inventory() {
             LKR {products.reduce((sum, p) => sum + (p.stock_quantity * p.cost_price), 0).toFixed(2)}
           </p>
         </div>
-        <div className="bg-white p-6 rounded-lg shadow-sm border border-slate-200">
+        <div className="bg-white p-4 sm:p-6 rounded-lg shadow-sm border border-slate-200">
           <div className="flex items-center gap-3 mb-2 text-slate-600 font-medium">
             <TrendingUp className="text-green-500" /> High Stock Items
           </div>
@@ -101,7 +101,7 @@ export default function Inventory() {
             {products.filter(p => p.stock_quantity > 100).length}
           </p>
         </div>
-        <div className="bg-white p-6 rounded-lg shadow-sm border border-slate-200 border-l-4 border-l-red-500">
+        <div className="bg-white p-4 sm:p-6 rounded-lg shadow-sm border border-slate-200 border-l-4 border-l-red-500">
           <div className="flex items-center gap-3 mb-2 text-red-600 font-medium">
             <TrendingDown className="text-red-500" /> Low Stock Alerts
           </div>
@@ -112,9 +112,9 @@ export default function Inventory() {
       </div>
 
       <div className="bg-white rounded-lg border border-slate-200 shadow-sm flex-1 flex flex-col overflow-hidden">
-        <div className="p-4 border-b border-slate-200 flex justify-between items-center bg-slate-50">
+        <div className="p-4 border-b border-slate-200 flex flex-col sm:flex-row sm:justify-between sm:items-center bg-slate-50 gap-4">
           <h3 className="font-bold text-slate-700">Recent Adjustments Log</h3>
-          <div className="relative w-64">
+          <div className="relative w-full sm:w-64">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
             <input 
               type="text" 
@@ -164,13 +164,13 @@ export default function Inventory() {
       </div>
 
       {isAddModalOpen && (
-        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg shadow-xl w-full max-w-lg overflow-hidden">
-            <div className="px-6 py-4 border-b border-slate-200 flex justify-between items-center">
+        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
+            <div className="px-6 py-4 border-b border-slate-200 flex justify-between items-center sticky top-0 bg-white z-10">
               <h3 className="text-lg font-bold text-slate-800">New Stock Adjustment</h3>
               <button onClick={() => setAddModalOpen(false)} className="text-slate-400 hover:text-slate-600">✕</button>
             </div>
-            <form onSubmit={handleAddAdjustment} className="p-6 space-y-4">
+            <form onSubmit={handleAddAdjustment} className="p-4 sm:p-6 space-y-4">
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">Product</label>
                 <select 
@@ -183,7 +183,7 @@ export default function Inventory() {
                   {products.map(p => <option key={p.id} value={p.id}>{p.name} (Current Stock: {p.stock_quantity})</option>)}
                 </select>
               </div>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-1">Type</label>
                   <select 

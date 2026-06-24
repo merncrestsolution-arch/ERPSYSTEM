@@ -57,7 +57,7 @@ export default function Settings() {
   };
 
   return (
-    <div className="p-8 max-w-4xl mx-auto w-full">
+    <div className="p-4 md:p-8 max-w-4xl mx-auto w-full">
       <div className="flex items-center gap-3 mb-8">
         <div className="p-3 bg-blue-100 rounded-lg text-blue-600">
           <SettingsIcon size={28} />
@@ -144,7 +144,7 @@ export default function Settings() {
           <div className="flex items-center gap-2 mb-4 text-slate-800 font-semibold text-lg border-b border-slate-100 pb-2">
             <SettingsIcon size={20} className="text-blue-500" /> Company Information
           </div>
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1">Company Name</label>
               <input type="text" className="w-full px-3 py-2 border border-slate-300 rounded-lg" defaultValue="DMS Wholesale Pvt Ltd" />
@@ -228,9 +228,9 @@ export default function Settings() {
             </div>
           </div>
           
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-            <div className="lg:col-span-2">
-              <table className="w-full text-left border-collapse border border-slate-200 rounded-md overflow-hidden">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 md:gap-8">
+            <div className="lg:col-span-2 overflow-x-auto border border-slate-200 rounded-md">
+              <table className="w-full text-left border-collapse min-w-[500px]">
                 <thead className="bg-slate-50 border-b border-slate-200">
                   <tr>
                     <th className="px-4 py-2 text-xs font-semibold text-slate-600">Username</th>

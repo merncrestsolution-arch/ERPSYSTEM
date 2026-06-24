@@ -67,14 +67,14 @@ export default function InvoicePrint() {
         </div>
 
         {/* Info Blocks */}
-        <div className="flex justify-between mb-12">
+        <div className="flex flex-col sm:flex-row sm:justify-between mb-12 gap-6">
           <div>
             <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Billed To</h3>
             <p className="font-bold text-slate-800 text-lg">{sale.customer_name}</p>
             <p className="text-slate-600">{sale.address}</p>
             <p className="text-slate-600">{sale.contact_number}</p>
           </div>
-          <div className="text-right">
+          <div className="sm:text-right">
             <div className="mb-4">
               <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Invoice Date</h3>
               <p className="font-medium text-slate-800">{new Date(sale.created_at).toLocaleDateString()}</p>
@@ -87,28 +87,30 @@ export default function InvoicePrint() {
         </div>
 
         {/* Items Table */}
-        <table className="w-full text-left border-collapse mb-8">
-          <thead>
-            <tr className="bg-slate-50 border-y border-slate-300">
-              <th className="py-3 px-4 font-bold text-slate-800 w-12 text-center">#</th>
-              <th className="py-3 px-4 font-bold text-slate-800">Description</th>
-              <th className="py-3 px-4 font-bold text-slate-800 text-right">Qty</th>
-              <th className="py-3 px-4 font-bold text-slate-800 text-right">Unit Price</th>
-              <th className="py-3 px-4 font-bold text-slate-800 text-right">Total</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-slate-100">
-            {sale.items.map((item: any, i: number) => (
-              <tr key={item.id}>
-                <td className="py-4 px-4 text-center text-slate-500">{i + 1}</td>
-                <td className="py-4 px-4 font-medium text-slate-800">{item.product_name}</td>
-                <td className="py-4 px-4 text-right text-slate-600">{item.quantity}</td>
-                <td className="py-4 px-4 text-right text-slate-600">{item.selling_price.toFixed(2)}</td>
-                <td className="py-4 px-4 text-right font-medium text-slate-800">{item.total_price.toFixed(2)}</td>
+        <div className="overflow-x-auto mb-8">
+          <table className="w-full text-left border-collapse min-w-[500px]">
+            <thead>
+              <tr className="bg-slate-50 border-y border-slate-300">
+                <th className="py-3 px-4 font-bold text-slate-800 w-12 text-center">#</th>
+                <th className="py-3 px-4 font-bold text-slate-800">Description</th>
+                <th className="py-3 px-4 font-bold text-slate-800 text-right">Qty</th>
+                <th className="py-3 px-4 font-bold text-slate-800 text-right">Unit Price</th>
+                <th className="py-3 px-4 font-bold text-slate-800 text-right">Total</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {sale.items.map((item: any, i: number) => (
+                <tr key={item.id}>
+                  <td className="py-4 px-4 text-center text-slate-500">{i + 1}</td>
+                  <td className="py-4 px-4 font-medium text-slate-800">{item.product_name}</td>
+                  <td className="py-4 px-4 text-right text-slate-600">{item.quantity}</td>
+                  <td className="py-4 px-4 text-right text-slate-600">{item.selling_price.toFixed(2)}</td>
+                  <td className="py-4 px-4 text-right font-medium text-slate-800">{item.total_price.toFixed(2)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
 
         {/* Totals */}
         <div className="flex justify-end border-t-2 border-slate-800 pt-6">

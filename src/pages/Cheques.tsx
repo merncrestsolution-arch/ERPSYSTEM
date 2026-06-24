@@ -92,15 +92,15 @@ export default function Cheques() {
   };
 
   return (
-    <div className="p-8 w-full h-full flex flex-col">
-      <div className="flex justify-between items-center mb-6">
+    <div className="p-4 md:p-8 w-full h-full flex flex-col">
+      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 mb-6">
         <div>
           <h2 className="text-2xl font-bold text-slate-800">Cheque Management</h2>
           <p className="text-slate-500">Track post-dated cheques, clearance, and returns.</p>
         </div>
         <button 
           onClick={() => setAddModalOpen(true)}
-          className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md font-medium flex items-center gap-2 shadow-sm transition-colors"
+          className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md font-medium flex items-center justify-center gap-2 shadow-sm transition-colors w-full sm:w-auto"
         >
           <Plus size={20} />
           Register Cheque
@@ -108,7 +108,7 @@ export default function Cheques() {
       </div>
 
       {/* Summary Cards */}
-      <div className="grid grid-cols-4 gap-6 mb-8">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 mb-8">
         <div className="bg-white p-5 rounded-lg shadow-sm border border-slate-200">
           <div className="text-sm font-medium text-slate-500 mb-1">Total Pending</div>
           <div className="text-2xl font-bold text-blue-600">
@@ -137,7 +137,7 @@ export default function Cheques() {
 
       <div className="bg-white rounded-lg border border-slate-200 shadow-sm flex-1 flex flex-col overflow-hidden">
         <div className="p-4 border-b border-slate-200 flex justify-between items-center bg-slate-50">
-          <div className="relative w-96">
+          <div className="relative w-full sm:w-96">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
             <input 
               type="text" 
@@ -210,13 +210,13 @@ export default function Cheques() {
       </div>
 
       {isAddModalOpen && (
-        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg shadow-xl w-full max-w-2xl overflow-hidden">
-            <div className="px-6 py-4 border-b border-slate-200 flex justify-between items-center">
+        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+            <div className="px-6 py-4 border-b border-slate-200 flex justify-between items-center sticky top-0 bg-white z-10">
               <h3 className="text-lg font-bold text-slate-800">Register Cheque</h3>
               <button onClick={() => setAddModalOpen(false)} className="text-slate-400 hover:text-slate-600">✕</button>
             </div>
-            <form onSubmit={handleRegisterCheque} className="p-6 space-y-4">
+            <form onSubmit={handleRegisterCheque} className="p-4 sm:p-6 space-y-4">
               <div className="bg-blue-50 text-blue-800 p-3 rounded-md text-sm mb-4">
                 <strong>Note:</strong> Registering a cheque will immediately deduct the amount from the customer's outstanding balance. If the cheque later bounces, the balance will be restored.
               </div>
@@ -234,7 +234,7 @@ export default function Cheques() {
                 </select>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-1">Cheque Number</label>
                   <input required type="text" value={chequeNumber} onChange={e => setChequeNumber(e.target.value)} className="w-full px-3 py-2 border border-slate-300 rounded-md" />
@@ -245,7 +245,7 @@ export default function Cheques() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-1">Bank Name</label>
                   <input required type="text" value={bankName} onChange={e => setBankName(e.target.value)} className="w-full px-3 py-2 border border-slate-300 rounded-md" placeholder="e.g. Commercial Bank" />
@@ -256,7 +256,7 @@ export default function Cheques() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-1">Issue Date</label>
                   <input required type="date" value={issueDate} onChange={e => setIssueDate(e.target.value)} className="w-full px-3 py-2 border border-slate-300 rounded-md" />

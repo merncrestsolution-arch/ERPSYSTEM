@@ -28,23 +28,23 @@ export default function Reports() {
   if (!data) return <div className="p-8">Error loading reports.</div>;
 
   return (
-    <div className="p-8 w-full h-full flex flex-col overflow-auto bg-slate-50">
-      <div className="flex justify-between items-center mb-6">
+    <div className="p-4 md:p-8 w-full h-full flex flex-col overflow-auto bg-slate-50">
+      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 mb-6">
         <div>
           <h2 className="text-2xl font-bold text-slate-800">Business Reports</h2>
           <p className="text-slate-500">Overview of sales, inventory, and financial health.</p>
         </div>
         <button 
           onClick={loadData}
-          className="bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 px-4 py-2 rounded-md font-medium flex items-center gap-2 shadow-sm transition-colors"
+          className="bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 px-4 py-2 rounded-md font-medium flex items-center justify-center gap-2 shadow-sm transition-colors w-full sm:w-auto"
         >
           Refresh Data
         </button>
       </div>
 
       {/* KPI Cards */}
-      <div className="grid grid-cols-4 gap-6 mb-8">
-        <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 mb-8">
+        <div className="bg-white p-4 sm:p-6 rounded-xl border border-slate-200 shadow-sm">
           <div className="flex justify-between items-start mb-4">
             <div className="p-2 bg-blue-100 rounded-lg">
               <DollarSign className="text-blue-600" size={24} />
@@ -54,7 +54,7 @@ export default function Reports() {
           <div className="text-3xl font-bold text-slate-800">LKR {data.todaySales.toFixed(2)}</div>
         </div>
 
-        <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
+        <div className="bg-white p-4 sm:p-6 rounded-xl border border-slate-200 shadow-sm">
           <div className="flex justify-between items-start mb-4">
             <div className="p-2 bg-green-100 rounded-lg">
               <TrendingUp className="text-green-600" size={24} />
@@ -64,7 +64,7 @@ export default function Reports() {
           <div className="text-3xl font-bold text-slate-800">LKR {data.totalSales.toFixed(2)}</div>
         </div>
 
-        <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
+        <div className="bg-white p-4 sm:p-6 rounded-xl border border-slate-200 shadow-sm">
           <div className="flex justify-between items-start mb-4">
             <div className="p-2 bg-orange-100 rounded-lg">
               <AlertCircle className="text-orange-600" size={24} />
@@ -74,7 +74,7 @@ export default function Reports() {
           <div className="text-3xl font-bold text-slate-800">LKR {data.totalCustomerDebt.toFixed(2)}</div>
         </div>
 
-        <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
+        <div className="bg-white p-4 sm:p-6 rounded-xl border border-slate-200 shadow-sm">
           <div className="flex justify-between items-start mb-4">
             <div className="p-2 bg-red-100 rounded-lg">
               <ShoppingBag className="text-red-600" size={24} />
@@ -85,7 +85,7 @@ export default function Reports() {
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-8 mb-8">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-8 mb-8">
         {/* Sales Chart (Mock visualization using HTML/CSS) */}
         <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
           <h3 className="text-lg font-bold text-slate-800 mb-6 flex items-center gap-2"><BarChart size={20} className="text-slate-400"/> Last 7 Days Sales Trend</h3>
