@@ -9,8 +9,9 @@ function createWindow() {
     height: 800,
     webPreferences: {
       preload: path.join(__dirname, 'preload.cjs'),
-      nodeIntegration: true,
-      contextIsolation: false,
+      nodeIntegration: false,
+      contextIsolation: true,
+      sandbox: false,
     },
   });
 
@@ -23,6 +24,7 @@ function createWindow() {
 }
 
 const { initDatabase, getDatabase } = require('./database.cjs');
+const { hashPassword, verifyPassword, isHashed } = require('./auth.cjs');
 const { ipcMain } = require('electron');
 
 app.whenReady().then(() => {
@@ -188,19 +190,21 @@ app.whenReady().then(() => {
       const saleResult = saleStmt.run(data.customer_id, data.invoice_number, data.sale_type, data.total_amount, data.discount, data.net_amount);
       const saleId = saleResult.lastInsertRowid;
 
-      // Add Items and Update Stock (only if not Pending Approval)
+      // Defer stock/balance effects while the sale awaits approval; they are
+      // applied later in 'approve-item' when the sale is finalized.
+      const isPending = typeof data.status === 'string' && data.status.startsWith('Pending');
+
       const itemStmt = db.prepare('INSERT INTO sale_items (sale_id, product_id, quantity, selling_price, total_price) VALUES (?, ?, ?, ?, ?)');
       const stockStmt = db.prepare('UPDATE products SET stock_quantity = stock_quantity - ? WHERE id = ?');
       
       for (const item of data.items) {
         itemStmt.run(saleId, item.product_id, item.quantity, item.selling_price, item.total_price);
-        if (data.status !== 'Pending Approval') {
+        if (!isPending) {
           stockStmt.run(item.quantity, item.product_id);
         }
       }
 
-      // Update Customer Outstanding Balance if Credit Sale and not Pending Approval
-      if (data.sale_type === 'Credit' && data.status !== 'Pending Approval') {
+      if (data.sale_type === 'Credit' && !isPending) {
         const custStmt = db.prepare('UPDATE customers SET outstanding_balance = outstanding_balance + ? WHERE id = ?');
         custStmt.run(data.net_amount, data.customer_id);
       }
@@ -263,48 +267,60 @@ app.whenReady().then(() => {
   });
 
   ipcMain.handle('get-report-data', () => {
-    const db = getDatabase();
-    
-    // Total Sales (All Time)
-    const totalSalesRow = db.prepare('SELECT SUM(net_amount) as total FROM sales').get();
-    
-    // Outstanding Customer Debt
-    const totalCustomerDebtRow = db.prepare('SELECT SUM(outstanding_balance) as total FROM customers').get();
-    
-    // Outstanding Supplier Debt
-    const totalSupplierDebtRow = db.prepare('SELECT SUM(balance) as total FROM suppliers').get();
+    try {
+      const db = getDatabase();
+      
+      // Total Sales (All Time)
+      const totalSalesRow = db.prepare('SELECT SUM(net_amount) as total FROM sales').get();
+      
+      // Outstanding Customer Debt
+      const totalCustomerDebtRow = db.prepare('SELECT SUM(outstanding_balance) as total FROM customers').get();
+      
+      // Outstanding Supplier Debt
+      const totalSupplierDebtRow = db.prepare('SELECT SUM(balance) as total FROM suppliers').get();
 
-    // Today's Sales
-    const todayStr = new Date().toISOString().split('T')[0];
-    const todaySalesRow = db.prepare('SELECT SUM(net_amount) as total FROM sales WHERE date(created_at) = ?').get(todayStr);
+      // Today's Sales
+      const todayStr = new Date().toISOString().split('T')[0];
+      const todaySalesRow = db.prepare('SELECT SUM(net_amount) as total FROM sales WHERE date(created_at) = ?').get(todayStr);
 
-    // Sales by Day (Last 7 Days)
-    const salesChart = db.prepare(`
-      SELECT date(created_at) as date, SUM(net_amount) as total 
-      FROM sales 
-      GROUP BY date(created_at) 
-      ORDER BY date(created_at) DESC 
-      LIMIT 7
-    `).all();
+      // Sales by Day (Last 7 Days)
+      const salesChart = db.prepare(`
+        SELECT date(created_at) as date, SUM(net_amount) as total 
+        FROM sales 
+        GROUP BY date(created_at) 
+        ORDER BY date(created_at) DESC 
+        LIMIT 7
+      `).all();
 
-    // Top Selling Products
-    const topProducts = db.prepare(`
-      SELECT p.name, SUM(si.quantity) as qty_sold, SUM(si.total_price) as revenue
-      FROM sale_items si
-      JOIN products p ON si.product_id = p.id
-      GROUP BY p.id
-      ORDER BY revenue DESC
-      LIMIT 5
-    `).all();
+      // Top Selling Products
+      const topProducts = db.prepare(`
+        SELECT p.name, SUM(si.quantity) as qty_sold, SUM(si.total_price) as revenue
+        FROM sale_items si
+        JOIN products p ON si.product_id = p.id
+        GROUP BY p.id
+        ORDER BY revenue DESC
+        LIMIT 5
+      `).all();
 
-    return {
-      totalSales: totalSalesRow?.total || 0,
-      totalCustomerDebt: totalCustomerDebtRow?.total || 0,
-      totalSupplierDebt: totalSupplierDebtRow?.total || 0,
-      todaySales: todaySalesRow?.total || 0,
-      salesChart: salesChart.reverse(),
-      topProducts
-    };
+      return {
+        totalSales: totalSalesRow?.total || 0,
+        totalCustomerDebt: totalCustomerDebtRow?.total || 0,
+        totalSupplierDebt: totalSupplierDebtRow?.total || 0,
+        todaySales: todaySalesRow?.total || 0,
+        salesChart: salesChart.reverse(),
+        topProducts
+      };
+    } catch (err) {
+      console.error('get-report-data error:', err);
+      return {
+        totalSales: 0,
+        totalCustomerDebt: 0,
+        totalSupplierDebt: 0,
+        todaySales: 0,
+        salesChart: [],
+        topProducts: []
+      };
+    }
   });
 
   ipcMain.handle('get-cloud-settings', () => {
@@ -347,41 +363,56 @@ app.whenReady().then(() => {
 
   ipcMain.handle('login-user', (event, { username, password }) => {
     const db = getDatabase();
-    const user = db.prepare('SELECT id, username, role, full_name FROM users WHERE username = ? AND password = ?').get(username, password);
-    return user || null;
+    const record = db.prepare('SELECT * FROM users WHERE username = ?').get(username);
+    if (!record || !verifyPassword(password, record.password)) {
+      return null;
+    }
+
+    // Transparently upgrade legacy plaintext passwords to a hash on first login.
+    if (!isHashed(record.password)) {
+      db.prepare('UPDATE users SET password = ? WHERE id = ?').run(hashPassword(password), record.id);
+    }
+
+    return { id: record.id, username: record.username, role: record.role, full_name: record.full_name };
   });
 
   ipcMain.handle('get-pending-approvals', () => {
     const db = getDatabase();
+    // Cheques are intentionally excluded: they have their own clear/bounce
+    // lifecycle on the Cheques page and are not part of the approval workflow.
     const grns = db.prepare('SELECT id, grn_number as reference, total_amount as amount, status, "GRN" as type, created_at FROM grns WHERE status LIKE "Pending%"').all();
-    const cheques = db.prepare('SELECT id, cheque_number as reference, amount, status, "Cheque" as type, created_at FROM cheques WHERE status LIKE "Pending%"').all();
     const grtns = db.prepare('SELECT id, grtn_number as reference, total_amount as amount, status, "GRTN" as type, created_at FROM grtns WHERE status LIKE "Pending%"').all();
     const sales = db.prepare('SELECT id, invoice_number as reference, net_amount as amount, status, "Sale" as type, created_at FROM sales WHERE status LIKE "Pending%"').all();
     
-    return [...grns, ...cheques, ...grtns, ...sales].sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+    return [...grns, ...grtns, ...sales].sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
   });
 
   ipcMain.handle('approve-item', (event, { id, type, newStatus }) => {
     const db = getDatabase();
     if (type === 'GRN') {
+      // GRN stock/balance effects are applied at creation; approval is a sign-off.
       db.prepare('UPDATE grns SET status = ? WHERE id = ?').run(newStatus, id);
-    } else if (type === 'Cheque') {
-      db.prepare('UPDATE cheques SET status = ? WHERE id = ?').run(newStatus, id);
     } else if (type === 'GRTN') {
+      // GRTN stock/balance effects are applied at creation; approval is a sign-off.
       db.prepare('UPDATE grtns SET status = ? WHERE id = ?').run(newStatus, id);
     } else if (type === 'Sale') {
       const transaction = db.transaction(() => {
+        const sale = db.prepare('SELECT * FROM sales WHERE id = ?').get(id);
+        if (!sale) return;
+
+        const wasPending = typeof sale.status === 'string' && sale.status.startsWith('Pending');
+        const isFinalizing = newStatus === 'Approved' || newStatus === 'Completed';
+
         db.prepare('UPDATE sales SET status = ? WHERE id = ?').run(newStatus, id);
-        
-        if (newStatus === 'Approved' || newStatus === 'Completed') {
-          const sale = db.prepare('SELECT * FROM sales WHERE id = ?').get(id);
+
+        // Apply inventory + balance effects exactly once: only when a pending
+        // sale is finalized (these were deferred at creation time).
+        if (wasPending && isFinalizing) {
           const items = db.prepare('SELECT * FROM sale_items WHERE sale_id = ?').all(id);
-          
           const stockStmt = db.prepare('UPDATE products SET stock_quantity = stock_quantity - ? WHERE id = ?');
           for (const item of items) {
             stockStmt.run(item.quantity, item.product_id);
           }
-          
           if (sale.sale_type === 'Credit') {
             db.prepare('UPDATE customers SET outstanding_balance = outstanding_balance + ? WHERE id = ?').run(sale.net_amount, sale.customer_id);
           }
@@ -395,7 +426,7 @@ app.whenReady().then(() => {
   ipcMain.handle('add-user', (event, user) => {
     const db = getDatabase();
     const stmt = db.prepare('INSERT INTO users (username, password, role, full_name) VALUES (?, ?, ?, ?)');
-    const result = stmt.run(user.username, user.password, user.role, user.full_name);
+    const result = stmt.run(user.username, hashPassword(user.password), user.role, user.full_name);
     return result.lastInsertRowid;
   });
 

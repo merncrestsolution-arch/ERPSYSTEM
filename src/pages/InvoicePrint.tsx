@@ -1,11 +1,13 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import { useReactToPrint } from 'react-to-print';
 import { Printer, ArrowLeft } from 'lucide-react';
 
 export default function InvoicePrint() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const [sale, setSale] = useState<any>(null);
+  const billRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (id) {
@@ -26,9 +28,10 @@ export default function InvoicePrint() {
     }
   };
 
-  const handlePrint = () => {
-    window.print();
-  };
+  const handlePrint = useReactToPrint({
+    content: () => billRef.current,
+    documentTitle: sale ? `Invoice-${sale.invoice_number}` : 'Invoice',
+  });
 
   if (!sale) return <div className="p-8">Loading invoice details...</div>;
 
@@ -51,101 +54,148 @@ export default function InvoicePrint() {
       </div>
 
       {/* Printable Area (A4 proportions) */}
-      <div className="bg-white w-full max-w-3xl shadow-xl border border-slate-200 min-h-[1056px] p-12 print:shadow-none print:border-none print:m-0 print:p-0">
-        
-        {/* Header */}
-        <div className="flex justify-between items-start border-b-2 border-slate-800 pb-8 mb-8">
-          <div>
-            <h1 className="text-4xl font-black text-slate-900 tracking-tight mb-2">INVOICE</h1>
-            <p className="text-slate-500 font-medium">{sale.invoice_number}</p>
+      <div id="bill-print-area" ref={billRef} className="bill-container shadow-xl border border-slate-200 print:shadow-none print:border-none">
+        <div className="bill-header">
+          <div className="bill-company-info">
+            <h2>DMS Wholesale Pvt Ltd</h2>
+            <p>123 Logistics Avenue, Colombo 03</p>
+            <p>Tel: +94 11 234 5678 | Email: sales@dms.lk</p>
           </div>
-          <div className="text-right">
-            <h2 className="text-2xl font-bold text-blue-600 mb-1">DMS Wholesale Pvt Ltd</h2>
-            <p className="text-sm text-slate-600">123 Logistics Avenue, Colombo 03</p>
-            <p className="text-sm text-slate-600">Tel: +94 11 234 5678 | Email: sales@dms.lk</p>
-          </div>
-        </div>
-
-        {/* Info Blocks */}
-        <div className="flex flex-col sm:flex-row sm:justify-between mb-12 gap-6">
-          <div>
-            <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Billed To</h3>
-            <p className="font-bold text-slate-800 text-lg">{sale.customer_name}</p>
-            <p className="text-slate-600">{sale.address}</p>
-            <p className="text-slate-600">{sale.contact_number}</p>
-          </div>
-          <div className="sm:text-right">
-            <div className="mb-4">
-              <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Invoice Date</h3>
-              <p className="font-medium text-slate-800">{new Date(sale.created_at).toLocaleDateString()}</p>
-            </div>
-            <div>
-              <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Payment Term</h3>
-              <p className="font-medium text-slate-800">{sale.sale_type}</p>
-            </div>
+          <div className="bill-invoice-meta">
+            <h3>INVOICE</h3>
+            <p><strong>Invoice #:</strong> {sale.invoice_number}</p>
+            <p><strong>Date:</strong> {new Date(sale.created_at).toLocaleDateString()}</p>
           </div>
         </div>
 
-        {/* Items Table */}
-        <div className="overflow-x-auto mb-8">
-          <table className="w-full text-left border-collapse min-w-[500px]">
-            <thead>
-              <tr className="bg-slate-50 border-y border-slate-300">
-                <th className="py-3 px-4 font-bold text-slate-800 w-12 text-center">#</th>
-                <th className="py-3 px-4 font-bold text-slate-800">Description</th>
-                <th className="py-3 px-4 font-bold text-slate-800 text-right">Qty</th>
-                <th className="py-3 px-4 font-bold text-slate-800 text-right">Unit Price</th>
-                <th className="py-3 px-4 font-bold text-slate-800 text-right">Total</th>
+        <div className="bill-customer">
+          <p><strong>Bill To:</strong></p>
+          <p>{sale.customer_name}</p>
+          <p>{sale.address}</p>
+          <p>{sale.contact_number}</p>
+        </div>
+
+        <table className="bill-items-table">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Description</th>
+              <th>Qty</th>
+              <th>Unit Price</th>
+              <th>Total</th>
+            </tr>
+          </thead>
+          <tbody>
+            {sale.items.map((item: any, i: number) => (
+              <tr key={item.id}>
+                <td>{i + 1}</td>
+                <td>{item.product_name}</td>
+                <td style={{ textAlign: 'right' }}>{item.quantity}</td>
+                <td style={{ textAlign: 'right' }}>Rs {item.selling_price.toFixed(2)}</td>
+                <td style={{ textAlign: 'right' }}>Rs {item.total_price.toFixed(2)}</td>
               </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {sale.items.map((item: any, i: number) => (
-                <tr key={item.id}>
-                  <td className="py-4 px-4 text-center text-slate-500">{i + 1}</td>
-                  <td className="py-4 px-4 font-medium text-slate-800">{item.product_name}</td>
-                  <td className="py-4 px-4 text-right text-slate-600">{item.quantity}</td>
-                  <td className="py-4 px-4 text-right text-slate-600">{item.selling_price.toFixed(2)}</td>
-                  <td className="py-4 px-4 text-right font-medium text-slate-800">{item.total_price.toFixed(2)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+            ))}
+          </tbody>
+        </table>
 
-        {/* Totals */}
-        <div className="flex justify-end border-t-2 border-slate-800 pt-6">
-          <div className="w-64 space-y-3">
-            <div className="flex justify-between text-slate-600">
-              <span>Subtotal</span>
-              <span>{sale.total_amount.toFixed(2)}</span>
-            </div>
-            <div className="flex justify-between text-slate-600">
-              <span>Discount</span>
-              <span>-{sale.discount.toFixed(2)}</span>
-            </div>
-            <div className="flex justify-between text-xl font-bold text-slate-900 border-t border-slate-200 pt-3">
-              <span>Total (LKR)</span>
-              <span>{sale.net_amount.toFixed(2)}</span>
-            </div>
+        <div className="bill-totals">
+          <div className="bill-totals-row">
+            <span>Subtotal</span>
+            <span>Rs {sale.total_amount.toFixed(2)}</span>
+          </div>
+          <div className="bill-totals-row">
+            <span>Discount</span>
+            <span>- Rs {sale.discount.toFixed(2)}</span>
+          </div>
+          <div className="bill-totals-row bill-grand-total">
+            <span><strong>TOTAL</strong></span>
+            <span><strong>Rs {sale.net_amount.toFixed(2)}</strong></span>
           </div>
         </div>
 
-        {/* Footer */}
-        <div className="mt-24 pt-8 border-t border-slate-200 text-center text-sm text-slate-500">
-          <p className="mb-2">Thank you for your business!</p>
-          <p>Please make cheques payable to <strong>DMS Wholesale Pvt Ltd</strong>.</p>
-          <div className="mt-16 flex justify-between px-16">
-            <div className="border-t border-slate-400 pt-2 w-48">Customer Signature</div>
-            <div className="border-t border-slate-400 pt-2 w-48">Authorized Signature</div>
-          </div>
+        <div className="bill-footer">
+          <p>Thank you for your business!</p>
         </div>
       </div>
 
       <style>{`
+        .bill-container {
+          max-width: 800px;
+          margin: 0 auto;
+          padding: 24px;
+          background: white;
+          color: #111;
+          font-family: Arial, sans-serif;
+          font-size: 14px;
+        }
+        .bill-header {
+          display: flex;
+          justify-content: space-between;
+          align-items: flex-start;
+          margin-bottom: 24px;
+          padding-bottom: 16px;
+          border-bottom: 2px solid #333;
+        }
+        .bill-invoice-meta {
+          text-align: right;
+        }
+        .bill-customer {
+          margin-bottom: 20px;
+        }
+        .bill-items-table {
+          width: 100%;
+          border-collapse: collapse;
+          margin-bottom: 20px;
+        }
+        .bill-items-table th,
+        .bill-items-table td {
+          border: 1px solid #ccc;
+          padding: 8px 12px;
+          text-align: left;
+        }
+        .bill-items-table th {
+          background-color: #f0f0f0;
+          font-weight: bold;
+        }
+        .bill-items-table tbody tr:nth-child(even) {
+          background-color: #fafafa;
+        }
+        .bill-totals {
+          display: flex;
+          flex-direction: column;
+          align-items: flex-end;
+          gap: 6px;
+          margin-bottom: 24px;
+        }
+        .bill-totals-row {
+          display: flex;
+          gap: 48px;
+          justify-content: flex-end;
+          min-width: 280px;
+        }
+        .bill-grand-total {
+          border-top: 2px solid #333;
+          padding-top: 6px;
+          font-size: 16px;
+        }
+        .bill-footer {
+          text-align: center;
+          color: #555;
+          font-size: 12px;
+          margin-top: 32px;
+          padding-top: 16px;
+          border-top: 1px solid #ddd;
+        }
         @media print {
-          @page { size: auto; margin: 0mm; }
-          body { -webkit-print-color-adjust: exact; print-color-adjust: exact; background-color: white;}
-          #root { height: auto; }
+          .bill-container {
+            padding: 0;
+            max-width: 100%;
+          }
+          .bill-items-table th {
+            background-color: #e0e0e0 !important;
+            -webkit-print-color-adjust: exact;
+            print-color-adjust: exact;
+          }
         }
       `}</style>
     </div>

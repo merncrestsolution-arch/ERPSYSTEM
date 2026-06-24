@@ -17,6 +17,7 @@ import InvoicePrint from './pages/InvoicePrint';
 import CloudSync from './pages/CloudSync';
 import Settings from './pages/Settings';
 import ApprovalCenter from './pages/ApprovalCenter';
+import ProtectedRoute from './components/ProtectedRoute';
 import { AuthProvider } from './context/AuthContext';
 import './index.css';
 
@@ -28,24 +29,47 @@ function App() {
           <Routes>
           <Route path="/" element={<Navigate to="/login" replace />} />
           <Route path="/login" element={<Login />} />
-          <Route path="/dashboard" element={<Dashboard />}>
-            <Route index element={<DashboardHome />} />
-            <Route path="products" element={<Products />} />
-            <Route path="vehicles" element={<Vehicles />} />
-            <Route path="customers" element={<Customers />} />
-            <Route path="suppliers" element={<Suppliers />} />
-            <Route path="grn" element={<GRN />} />
-            <Route path="grtn" element={<GRTN />} />
-            <Route path="inventory" element={<Inventory />} />
-            <Route path="sales" element={<Sales />} />
-            <Route path="cheques" element={<Cheques />} />
-            <Route path="supplier-payments" element={<SupplierPayments />} />
-            <Route path="reports" element={<Reports />} />
-            <Route path="cloud-sync" element={<CloudSync />} />
-            <Route path="settings" element={<Settings />} />
-            <Route path="approvals" element={<ApprovalCenter />} />
+
+          {/* Authenticated area */}
+          <Route element={<ProtectedRoute />}>
+            <Route path="/dashboard" element={<Dashboard />}>
+              <Route index element={<DashboardHome />} />
+
+              <Route element={<ProtectedRoute allowedRoles={['Store Manager']} />}>
+                <Route path="products" element={<Products />} />
+                <Route path="inventory" element={<Inventory />} />
+                <Route path="grn" element={<GRN />} />
+                <Route path="grtn" element={<GRTN />} />
+              </Route>
+
+              <Route element={<ProtectedRoute allowedRoles={['Sales Officer']} />}>
+                <Route path="customers" element={<Customers />} />
+                <Route path="sales" element={<Sales />} />
+              </Route>
+
+              <Route element={<ProtectedRoute allowedRoles={['Director', 'Accountant']} />}>
+                <Route path="suppliers" element={<Suppliers />} />
+                <Route path="supplier-payments" element={<SupplierPayments />} />
+                <Route path="cheques" element={<Cheques />} />
+              </Route>
+
+              <Route element={<ProtectedRoute allowedRoles={['Director']} />}>
+                <Route path="reports" element={<Reports />} />
+              </Route>
+
+              <Route element={<ProtectedRoute allowedRoles={['Admin']} />}>
+                <Route path="vehicles" element={<Vehicles />} />
+                <Route path="cloud-sync" element={<CloudSync />} />
+                <Route path="settings" element={<Settings />} />
+              </Route>
+
+              <Route element={<ProtectedRoute allowedRoles={['Admin', 'Director', 'Accountant', 'Store Manager']} />}>
+                <Route path="approvals" element={<ApprovalCenter />} />
+              </Route>
+            </Route>
+
+            <Route path="/invoice/:id" element={<InvoicePrint />} />
           </Route>
-          <Route path="/invoice/:id" element={<InvoicePrint />} />
         </Routes>
       </div>
       </Router>

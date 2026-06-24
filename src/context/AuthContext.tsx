@@ -9,6 +9,7 @@ export interface User {
 
 interface AuthContextType {
   user: User | null;
+  isLoading: boolean;
   login: (userData: User) => void;
   logout: () => void;
   hasRole: (allowedRoles: string[]) => boolean;
@@ -18,6 +19,9 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
+  // Tracks the initial restore from localStorage so route guards don't
+  // redirect to /login before we've had a chance to rehydrate the session.
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     // Load from local storage on startup
@@ -27,6 +31,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setUser(JSON.parse(storedUser));
       } catch (e) {}
     }
+    setIsLoading(false);
   }, []);
 
   const login = (userData: User) => {
@@ -46,7 +51,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, login, logout, hasRole }}>
+    <AuthContext.Provider value={{ user, isLoading, login, logout, hasRole }}>
       {children}
     </AuthContext.Provider>
   );

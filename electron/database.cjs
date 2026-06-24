@@ -1,8 +1,18 @@
 const Database = require('better-sqlite3');
 const path = require('path');
 const { app } = require('electron');
+const { hashPassword } = require('./auth.cjs');
 
 let db;
+
+function columnExists(table, column) {
+  try {
+    const cols = db.prepare(`PRAGMA table_info(${table})`).all();
+    return cols.some((c) => c.name === column);
+  } catch (e) {
+    return false;
+  }
+}
 
 function initDatabase() {
   const dbPath = path.join(app.getPath('userData'), 'erp_database.sqlite');
@@ -18,6 +28,7 @@ function initDatabase() {
         username TEXT UNIQUE NOT NULL,
         password TEXT NOT NULL,
         role TEXT NOT NULL,
+        full_name TEXT,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP
       );
 
@@ -107,7 +118,7 @@ function initDatabase() {
         total_amount REAL DEFAULT 0,
         status TEXT DEFAULT 'Pending',
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-        FOREIGN KEY(supplier_id) REFERENCES suppliers(id)
+        FOREIGN KEY(customer_id) REFERENCES customers(id)
       );
 
       CREATE TABLE IF NOT EXISTS grtn_items (
@@ -185,33 +196,30 @@ function initDatabase() {
         postgres_url TEXT,
         last_sync DATETIME
       );
-
-      CREATE TABLE IF NOT EXISTS users (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        username TEXT UNIQUE NOT NULL,
-        password TEXT NOT NULL,
-        role TEXT NOT NULL,
-        full_name TEXT,
-        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-      );
-      
-      -- Insert default admin if no users exist
-      INSERT OR IGNORE INTO users (username, password, role, full_name) VALUES ('admin', 'admin123', 'Director', 'System Administrator');
     `);
-    
-    try {
-      db.exec("ALTER TABLE users ADD COLUMN full_name TEXT");
-    } catch(e) {}
 
-    try {
-      db.exec("ALTER TABLE grtns RENAME COLUMN supplier_id TO customer_id;");
-    } catch(e) {
-      try {
-        db.exec("ALTER TABLE grtns ADD COLUMN customer_id INTEGER;");
-      } catch(e2) {}
+    // --- Lightweight migrations for databases created by older versions ---
+
+    // Older schemas omitted users.full_name.
+    if (!columnExists('users', 'full_name')) {
+      try { db.exec('ALTER TABLE users ADD COLUMN full_name TEXT'); } catch (e) {}
     }
 
-    
+    // Older schemas defined grtns with a (wrong) supplier_id column instead of
+    // customer_id. Add customer_id if it is missing so existing data keeps working.
+    if (!columnExists('grtns', 'customer_id')) {
+      try { db.exec('ALTER TABLE grtns ADD COLUMN customer_id INTEGER'); } catch (e) {}
+    }
+
+    // Seed a default admin (hashed) only if there are no users yet.
+    const userCount = db.prepare('SELECT COUNT(*) AS count FROM users').get();
+    if (!userCount || userCount.count === 0) {
+      db.prepare(
+        'INSERT INTO users (username, password, role, full_name) VALUES (?, ?, ?, ?)'
+      ).run('admin', hashPassword('admin123'), 'Director', 'System Administrator');
+      console.log('Seeded default admin user (username: admin).');
+    }
+
     console.log('Database initialized successfully.');
   } catch (error) {
     console.error('Error initializing database:', error);

@@ -81,8 +81,165 @@
 @layer base {
   * {
     @apply border-border;
+    box-sizing: border-box;
   }
   body {
     @apply bg-background text-foreground;
+    overflow-x: hidden;
+  }
+}
+
+/* Global responsive helpers */
+img, video {
+  max-width: 100%;
+  height: auto;
+}
+
+button, a {
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+
+@media (max-width: 768px) {
+  input, select, textarea {
+    font-size: 16px !important; /* prevent iOS zoom */
+  }
+
+  button, a, .clickable {
+    min-height: 44px;
+    min-width: 44px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .modal, .dialog {
+    width: 95vw !important;
+    max-width: 95vw !important;
+    max-height: 90vh;
+    overflow-y: auto;
+    margin: 5vh auto;
+    border-radius: 12px;
+  }
+
+  .mobile-full-width {
+    width: 100% !important;
+  }
+}
+
+/* Sidebar + header helpers */
+.sidebar-dim {
+  background: rgba(0, 0, 0, 0.5);
+}
+
+.sticky-header {
+  position: sticky;
+  top: 0;
+  z-index: 900;
+}
+
+/* KPI grid utility */
+.kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 16px;
+}
+
+@media (max-width: 480px) {
+  .kpi-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Table responsiveness */
+.table-wrapper {
+  width: 100%;
+  overflow-x: auto;
+}
+
+@media (max-width: 768px) {
+  .table-stack table {
+    border-collapse: collapse;
+    width: 100%;
+  }
+  .table-stack thead {
+    display: none;
+  }
+  .table-stack tbody tr {
+    display: block;
+    background: white;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    margin-bottom: 12px;
+    padding: 12px;
+  }
+  .table-stack tbody td {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 8px 0;
+  }
+  .table-stack tbody td::before {
+    content: attr(data-label);
+    font-weight: 600;
+    color: #475569;
+  }
+}
+
+/* Form responsiveness */
+.form-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+@media (max-width: 768px) {
+  .form-grid {
+    grid-template-columns: 1fr;
+  }
+  .form-full {
+    width: 100%;
+  }
+  .form-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+}
+
+/* Chart containers */
+.chart-container {
+  width: 100%;
+  height: 320px;
+}
+@media (max-width: 768px) {
+  .chart-container {
+    height: 250px;
+  }
+}
+
+/* Print helpers */
+@media print {
+  body {
+    background: white !important;
+    color: black !important;
+    font-family: 'Arial', sans-serif;
+    font-size: 12pt;
+  }
+  #bill-print-area {
+    display: block !important;
+    width: 100%;
+    margin: 0;
+    padding: 0;
+  }
+  .no-print,
+  .sidebar,
+  .header,
+  .navbar,
+  .action-buttons {
+    display: none !important;
+  }
+  @page {
+    size: A4;
+    margin: 15mm;
   }
 }

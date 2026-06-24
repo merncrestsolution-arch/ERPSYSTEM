@@ -193,8 +193,8 @@ export default function Sales() {
           </div>
         </div>
 
-        <div className="flex-1 overflow-auto">
-          <table className="w-full text-left border-collapse">
+        <div className="flex-1 overflow-auto table-wrapper">
+          <table className="w-full text-left border-collapse table-stack">
             <thead className="bg-slate-50 border-b border-slate-200 sticky top-0">
               <tr>
                 <th className="px-6 py-3 text-xs font-semibold text-slate-600 uppercase tracking-wider">Date</th>
@@ -209,19 +209,19 @@ export default function Sales() {
             <tbody className="divide-y divide-slate-200">
               {sales.filter(s => s.invoice_number.toLowerCase().includes(search.toLowerCase()) || s.customer_name?.toLowerCase().includes(search.toLowerCase())).map((s) => (
                 <tr key={s.id} className="hover:bg-slate-50 transition-colors">
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-600">{new Date(s.created_at).toLocaleDateString()}</td>
-                  <td className="px-6 py-4 whitespace-nowrap font-medium text-blue-600">{s.invoice_number}</td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-800">{s.customer_name}</td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm">
+                  <td data-label="Date" className="px-6 py-4 whitespace-nowrap text-sm text-slate-600">{new Date(s.created_at).toLocaleDateString()}</td>
+                  <td data-label="Invoice" className="px-6 py-4 whitespace-nowrap font-medium text-blue-600">{s.invoice_number}</td>
+                  <td data-label="Customer" className="px-6 py-4 whitespace-nowrap text-sm text-slate-800">{s.customer_name}</td>
+                  <td data-label="Type" className="px-6 py-4 whitespace-nowrap text-sm">
                     <span className={`px-2 py-1 rounded-full text-xs font-medium ${s.sale_type === 'Cash' ? 'bg-green-100 text-green-800' : 'bg-orange-100 text-orange-800'}`}>
                       {s.sale_type}
                     </span>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-slate-800">LKR {s.net_amount.toFixed(2)}</td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm">
+                  <td data-label="Net Amount" className="px-6 py-4 whitespace-nowrap text-sm font-medium text-slate-800">LKR {s.net_amount.toFixed(2)}</td>
+                  <td data-label="Status" className="px-6 py-4 whitespace-nowrap text-sm">
                     <span className="bg-blue-100 text-blue-800 px-2 py-1 rounded-full text-xs font-medium">{s.status}</span>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-right flex justify-end items-center gap-2">
+                  <td data-label="Actions" className="px-6 py-4 whitespace-nowrap text-sm text-right flex justify-end items-center gap-2">
                     <button onClick={() => openEditModal(s)} className="text-slate-600 hover:text-blue-600 transition-colors p-1" title="Edit">
                       <Edit size={18} />
                     </button>
@@ -254,7 +254,7 @@ export default function Sales() {
             </div>
             <div className="p-4 sm:p-6 overflow-y-auto flex-1 flex flex-col lg:flex-row gap-6">
               {/* Left Column: Items */}
-              <div className="flex-1 overflow-x-auto">
+              <div className="flex-1 overflow-x-auto table-wrapper">
                 <div className="mb-4 flex justify-between items-center">
                   <h4 className="font-semibold text-slate-800 flex items-center gap-2">Sale Items</h4>
                   <button onClick={handleAddItem} type="button" className="text-sm bg-slate-100 text-blue-600 px-3 py-1 rounded hover:bg-slate-200 font-medium">+ Add Item Line</button>

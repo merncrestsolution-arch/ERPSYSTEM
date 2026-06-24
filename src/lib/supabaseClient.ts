@@ -1,7 +1,15 @@
 import { createClient } from '@supabase/supabase-js';
+import { hashPassword, verifyPassword, isHashed } from './crypto';
 
-const SUPABASE_URL = 'https://hmqmrdfnrjqusvkbljqn.supabase.co';
-const SUPABASE_ANON_KEY = 'sb_publishable_qrMpfcUrjlhtNAfM5AUHvg_jLNXE2Dg';
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL as string;
+const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY as string;
+
+if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
+  // Surface misconfiguration early instead of failing with opaque network errors.
+  console.error(
+    'Missing Supabase configuration. Define VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in your .env file.'
+  );
+}
 
 export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
@@ -140,12 +148,15 @@ export const supabaseAPI = {
   },
   addSale: async (saleData: any) => {
     const { items, ...saleInfo } = saleData;
+    // Defer stock/balance effects while the sale awaits approval; they are
+    // applied later in approveItem when the sale is finalized.
+    const isPending = typeof saleInfo.status === 'string' && saleInfo.status.startsWith('Pending');
     const { data: sale } = await supabase.from('sales').insert([saleInfo]).select().single();
     if (!sale) return null;
 
     for (const item of items) {
       await supabase.from('sale_items').insert([{ ...item, sale_id: sale.id }]);
-      if (saleInfo.status !== 'Pending Approval') {
+      if (!isPending) {
         const { data: product } = await supabase.from('products').select('stock_quantity').eq('id', item.product_id).single();
         if (product) {
           await supabase.from('products').update({ stock_quantity: (product.stock_quantity || 0) - item.quantity }).eq('id', item.product_id);
@@ -153,7 +164,7 @@ export const supabaseAPI = {
       }
     }
 
-    if (saleInfo.sale_type === 'Credit' && saleInfo.status !== 'Pending Approval') {
+    if (saleInfo.sale_type === 'Credit' && !isPending) {
       const { data: cust } = await supabase.from('customers').select('outstanding_balance').eq('id', saleInfo.customer_id).single();
       if (cust) {
         await supabase.from('customers').update({ outstanding_balance: (cust.outstanding_balance || 0) + saleInfo.net_amount }).eq('id', saleInfo.customer_id);
@@ -245,11 +256,23 @@ export const supabaseAPI = {
     return data || [];
   },
   loginUser: async ({ username, password }: any) => {
-    const { data } = await supabase.from('users').select('*').eq('username', username).eq('password', password).single();
-    return data || null;
+    const { data } = await supabase.from('users').select('*').eq('username', username).single();
+    if (!data) return null;
+
+    const ok = await verifyPassword(password, data.password);
+    if (!ok) return null;
+
+    // Transparently upgrade legacy plaintext passwords to a hash on first login.
+    if (!isHashed(data.password)) {
+      const hashed = await hashPassword(password);
+      await supabase.from('users').update({ password: hashed }).eq('id', data.id);
+    }
+
+    return { id: data.id, username: data.username, role: data.role, full_name: data.full_name };
   },
   addUser: async (userData: any) => {
-    const { data } = await supabase.from('users').insert([userData]).select().single();
+    const hashed = await hashPassword(userData.password);
+    const { data } = await supabase.from('users').insert([{ ...userData, password: hashed }]).select().single();
     return data?.id;
   },
   deleteUser: async (id: number) => {
@@ -257,14 +280,14 @@ export const supabaseAPI = {
     return true;
   },
   getPendingApprovals: async () => {
+    // Cheques are intentionally excluded: they have their own clear/bounce
+    // lifecycle on the Cheques page and are not part of the approval workflow.
     const { data: grns } = await supabase.from('grns').select('id, grn_number, total_amount, status, created_at').like('status', 'Pending%');
-    const { data: cheques } = await supabase.from('cheques').select('id, cheque_number, amount, status, created_at').like('status', 'Pending%');
     const { data: grtns } = await supabase.from('grtns').select('id, grtn_number, total_amount, status, created_at').like('status', 'Pending%');
     const { data: sales } = await supabase.from('sales').select('id, invoice_number, net_amount, status, created_at').like('status', 'Pending%');
     
     const combined = [
       ...(grns || []).map(g => ({ id: g.id, reference: g.grn_number, amount: g.total_amount, status: g.status, type: 'GRN', created_at: g.created_at })),
-      ...(cheques || []).map(c => ({ id: c.id, reference: c.cheque_number, amount: c.amount, status: c.status, type: 'Cheque', created_at: c.created_at })),
       ...(grtns || []).map(g => ({ id: g.id, reference: g.grtn_number, amount: g.total_amount, status: g.status, type: 'GRTN', created_at: g.created_at })),
       ...(sales || []).map(s => ({ id: s.id, reference: s.invoice_number, amount: s.net_amount, status: s.status, type: 'Sale', created_at: s.created_at }))
     ];
@@ -272,38 +295,28 @@ export const supabaseAPI = {
     return combined.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
   },
   approveItem: async ({ id, type, newStatus }: any) => {
+    // GRN and GRTN stock/balance effects are applied at creation; approval is a sign-off.
     if (type === 'GRN') await supabase.from('grns').update({ status: newStatus }).eq('id', id);
-    if (type === 'Cheque') await supabase.from('cheques').update({ status: newStatus }).eq('id', id);
-    if (type === 'GRTN') {
-      await supabase.from('grtns').update({ status: newStatus }).eq('id', id);
-      if (newStatus === 'Completed') {
-        const { data: grtn } = await supabase.from('grtns').select('*').eq('id', id).single();
-        const { data: items } = await supabase.from('grtn_items').select('*').eq('grtn_id', id);
-        if (grtn && items) {
-          for (const item of items) {
-             const { data: p } = await supabase.from('products').select('stock_quantity').eq('id', item.product_id).single();
-             if (p) await supabase.from('products').update({ stock_quantity: (p.stock_quantity || 0) + item.quantity }).eq('id', item.product_id);
-          }
-          const { data: c } = await supabase.from('customers').select('outstanding_balance').eq('id', grtn.customer_id).single();
-          if (c) await supabase.from('customers').update({ outstanding_balance: (c.outstanding_balance || 0) - grtn.total_amount }).eq('id', grtn.customer_id);
-        }
-      }
-    }
+    if (type === 'GRTN') await supabase.from('grtns').update({ status: newStatus }).eq('id', id);
+
     if (type === 'Sale') {
+      const { data: sale } = await supabase.from('sales').select('*').eq('id', id).single();
+      const wasPending = typeof sale?.status === 'string' && sale.status.startsWith('Pending');
+      const isFinalizing = newStatus === 'Approved' || newStatus === 'Completed';
+
       await supabase.from('sales').update({ status: newStatus }).eq('id', id);
-      if (newStatus === 'Completed') {
-        const { data: sale } = await supabase.from('sales').select('*').eq('id', id).single();
+
+      // Apply inventory + balance effects exactly once: only when a pending
+      // sale is finalized (these were deferred at creation time).
+      if (sale && wasPending && isFinalizing) {
         const { data: items } = await supabase.from('sale_items').select('*').eq('sale_id', id);
-        
-        if (sale && items) {
-          for (const item of items) {
-             const { data: p } = await supabase.from('products').select('stock_quantity').eq('id', item.product_id).single();
-             if (p) await supabase.from('products').update({ stock_quantity: (p.stock_quantity || 0) - item.quantity }).eq('id', item.product_id);
-          }
-          if (sale.sale_type === 'Credit') {
-             const { data: c } = await supabase.from('customers').select('outstanding_balance').eq('id', sale.customer_id).single();
-             if (c) await supabase.from('customers').update({ outstanding_balance: (c.outstanding_balance || 0) + sale.net_amount }).eq('id', sale.customer_id);
-          }
+        for (const item of (items || [])) {
+          const { data: p } = await supabase.from('products').select('stock_quantity').eq('id', item.product_id).single();
+          if (p) await supabase.from('products').update({ stock_quantity: (p.stock_quantity || 0) - item.quantity }).eq('id', item.product_id);
+        }
+        if (sale.sale_type === 'Credit') {
+          const { data: c } = await supabase.from('customers').select('outstanding_balance').eq('id', sale.customer_id).single();
+          if (c) await supabase.from('customers').update({ outstanding_balance: (c.outstanding_balance || 0) + sale.net_amount }).eq('id', sale.customer_id);
         }
       }
     }

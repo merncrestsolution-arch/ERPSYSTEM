@@ -1,31 +1,102 @@
 import { useState, useEffect } from 'react';
 import { BarChart, TrendingUp, AlertCircle, ShoppingBag, DollarSign } from 'lucide-react';
 
+type ReportData = {
+  todaySales: number;
+  totalSales: number;
+  totalCustomerDebt: number;
+  totalSupplierDebt: number;
+  salesChart: { date: string; total: number }[];
+  topProducts: { name: string; qty_sold: number; revenue: number }[];
+};
+
+const emptyReport: ReportData = {
+  todaySales: 0,
+  totalSales: 0,
+  totalCustomerDebt: 0,
+  totalSupplierDebt: 0,
+  salesChart: [],
+  topProducts: [],
+};
+
 export default function Reports() {
-  const [data, setData] = useState<any>(null);
+  const [data, setData] = useState<ReportData>(emptyReport);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     loadData();
   }, []);
 
   const loadData = async () => {
+    setLoading(true);
+    setError(null);
     try {
       // @ts-ignore
       if (window.electronAPI) {
         // @ts-ignore
         const reportData = await window.electronAPI.getReportData();
-        setData(reportData);
+        const normalized: ReportData = {
+          todaySales: Number(reportData?.todaySales) || 0,
+          totalSales: Number(reportData?.totalSales) || 0,
+          totalCustomerDebt: Number(reportData?.totalCustomerDebt) || 0,
+          totalSupplierDebt: Number(reportData?.totalSupplierDebt) || 0,
+          salesChart: Array.isArray(reportData?.salesChart) 
+            ? reportData.salesChart.map((d: any) => ({ date: d.date, total: Number(d.total) || 0 }))
+            : [],
+          topProducts: Array.isArray(reportData?.topProducts) 
+            ? reportData.topProducts.map((p: any) => ({
+                name: p.name,
+                qty_sold: Number(p.qty_sold) || 0,
+                revenue: Number(p.revenue) || 0,
+              }))
+            : [],
+        };
+        setData(normalized);
+      } else {
+        setError('Reports are unavailable in this environment.');
+        setData(emptyReport);
       }
-    } catch (e) {
-      console.error(e);
+    } catch (e: any) {
+      console.error('Reports fetch error:', e);
+      setError(e?.message || 'Failed to load reports');
+      setData(emptyReport);
     } finally {
       setLoading(false);
     }
   };
 
   if (loading) return <div className="p-8">Loading Reports...</div>;
-  if (!data) return <div className="p-8">Error loading reports.</div>;
+
+  if (error) {
+    return (
+      <div className="p-8 space-y-4">
+        <div className="p-4 rounded-md bg-red-50 border border-red-200 text-red-700">
+          ⚠️ {error}
+        </div>
+        <button 
+          onClick={loadData}
+          className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition-colors"
+        >
+          Retry
+        </button>
+      </div>
+    );
+  }
+
+  if (!data || (!data.topProducts.length && !data.salesChart.length && data.totalSales === 0)) {
+    return (
+      <div className="p-8 space-y-4">
+        <div className="text-slate-700 font-semibold">No report data found for the selected period.</div>
+        <button 
+          onClick={loadData}
+          className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition-colors"
+        >
+          Refresh
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div className="p-4 md:p-8 w-full h-full flex flex-col overflow-auto bg-slate-50">

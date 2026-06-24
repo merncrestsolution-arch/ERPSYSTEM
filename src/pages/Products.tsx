@@ -120,8 +120,8 @@ export default function Products() {
         </div>
 
         {/* Table */}
-        <div className="flex-1 overflow-auto">
-          <table className="w-full text-left border-collapse">
+        <div className="flex-1 overflow-auto table-wrapper">
+          <table className="w-full text-left border-collapse table-stack">
             <thead className="bg-slate-50 border-b border-slate-200 sticky top-0">
               <tr>
                 <th className="px-6 py-3 text-xs font-semibold text-slate-600 uppercase tracking-wider">Barcode</th>
@@ -134,15 +134,15 @@ export default function Products() {
             <tbody className="divide-y divide-slate-200">
               {products.filter(p => p.name.toLowerCase().includes(search.toLowerCase()) || (p.barcode && p.barcode.includes(search))).map((product) => (
                 <tr key={product.id} className="hover:bg-slate-50 transition-colors">
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-600">{product.barcode || 'N/A'}</td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-slate-900">{product.name}</td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm">
+                  <td data-label="Barcode" className="px-6 py-4 whitespace-nowrap text-sm text-slate-600">{product.barcode || 'N/A'}</td>
+                  <td data-label="Product Name" className="px-6 py-4 whitespace-nowrap text-sm font-medium text-slate-900">{product.name}</td>
+                  <td data-label="Stock" className="px-6 py-4 whitespace-nowrap text-sm">
                     <span className={`px-2 py-1 rounded-full text-xs font-medium ${product.stock_quantity > 10 ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
                       {product.stock_quantity} in stock
                     </span>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-600">LKR {product.selling_price.toFixed(2)}</td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-right flex justify-end gap-2">
+                  <td data-label="Selling Price" className="px-6 py-4 whitespace-nowrap text-sm text-slate-600">LKR {product.selling_price.toFixed(2)}</td>
+                  <td data-label="Actions" className="px-6 py-4 whitespace-nowrap text-sm text-right flex justify-end gap-2">
                     <button onClick={() => openEditModal(product)} className="text-slate-400 hover:text-blue-600 transition-colors">
                       <Edit2 size={18} />
                     </button>
