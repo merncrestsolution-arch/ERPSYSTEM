@@ -1,8 +1,22 @@
 import { createClient } from '@supabase/supabase-js';
 import { hashPassword, verifyPassword, isHashed } from './crypto';
 
-const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL as string;
+const RAW_SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL as string;
 const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY as string;
+
+// Normalize the URL to the project base. The Supabase client appends `/rest/v1`
+// itself, so a value that already includes a trailing `/rest/v1` (or a stray
+// trailing slash) would produce a malformed `/rest/v1/rest/v1/...` 404.
+function normalizeSupabaseUrl(url: string | undefined): string {
+  if (!url) return '';
+  return url
+    .trim()
+    .replace(/\/+$/, '')
+    .replace(/\/rest\/v1$/i, '')
+    .replace(/\/+$/, '');
+}
+
+const SUPABASE_URL = normalizeSupabaseUrl(RAW_SUPABASE_URL);
 
 if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
   // Surface misconfiguration early instead of failing with opaque network errors.
