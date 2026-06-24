@@ -28,6 +28,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
   saveCloudSettings: (data) => ipcRenderer.invoke('save-cloud-settings', data),
   syncToCloud: () => ipcRenderer.invoke('sync-to-cloud'),
   getUsers: () => ipcRenderer.invoke('get-users'),
+  loginUser: (credentials) => ipcRenderer.invoke('login-user', credentials),
   addUser: (userData) => ipcRenderer.invoke('add-user', userData),
-  deleteUser: (id) => ipcRenderer.invoke('delete-user', id)
+  deleteUser: (id) => ipcRenderer.invoke('delete-user', id),
+  getPendingApprovals: () => ipcRenderer.invoke('get-pending-approvals'),
+  approveItem: (data) => ipcRenderer.invoke('approve-item', data)
 });

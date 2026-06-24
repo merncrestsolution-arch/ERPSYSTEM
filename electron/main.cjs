@@ -343,6 +343,33 @@ app.whenReady().then(() => {
     return db.prepare('SELECT id, username, role, full_name, created_at FROM users').all();
   });
 
+  ipcMain.handle('login-user', (event, { username, password }) => {
+    const db = getDatabase();
+    const user = db.prepare('SELECT id, username, role, full_name FROM users WHERE username = ? AND password = ?').get(username, password);
+    return user || null;
+  });
+
+  ipcMain.handle('get-pending-approvals', () => {
+    const db = getDatabase();
+    const grns = db.prepare('SELECT id, grn_number as reference, total_amount as amount, status, "GRN" as type, created_at FROM grns WHERE status LIKE "Pending%"').all();
+    const cheques = db.prepare('SELECT id, cheque_number as reference, amount, status, "Cheque" as type, created_at FROM cheques WHERE status LIKE "Pending%"').all();
+    const grtns = db.prepare('SELECT id, grtn_number as reference, total_amount as amount, status, "GRTN" as type, created_at FROM grtns WHERE status LIKE "Pending%"').all();
+    
+    return [...grns, ...cheques, ...grtns].sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+  });
+
+  ipcMain.handle('approve-item', (event, { id, type, newStatus }) => {
+    const db = getDatabase();
+    if (type === 'GRN') {
+      db.prepare('UPDATE grns SET status = ? WHERE id = ?').run(newStatus, id);
+    } else if (type === 'Cheque') {
+      db.prepare('UPDATE cheques SET status = ? WHERE id = ?').run(newStatus, id);
+    } else if (type === 'GRTN') {
+      db.prepare('UPDATE grtns SET status = ? WHERE id = ?').run(newStatus, id);
+    }
+    return true;
+  });
+
   ipcMain.handle('add-user', (event, user) => {
     const db = getDatabase();
     const stmt = db.prepare('INSERT INTO users (username, password, role, full_name) VALUES (?, ?, ?, ?)');

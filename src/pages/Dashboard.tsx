@@ -11,12 +11,21 @@ import {
   Truck,
   FileText,
   Banknote,
-  Cloud
+  Cloud,
+  CheckCircle
 } from 'lucide-react';
+
+import { useAuth } from '../context/AuthContext';
 
 export default function Dashboard() {
   const navigate = useNavigate();
   const location = useLocation();
+  const { user, logout, hasRole } = useAuth();
+
+  const handleLogout = () => {
+    logout();
+    navigate('/login');
+  };
 
   return (
     <div className="flex h-screen bg-slate-50 w-full">
@@ -26,26 +35,57 @@ export default function Dashboard() {
           <h1 className="text-xl font-bold text-white tracking-wider">ERP SYSTEM</h1>
         </div>
         
-        <nav className="flex-1 py-4 space-y-1 overflow-y-auto">
+        <nav className="flex-1 py-4 space-y-1 overflow-y-auto no-scrollbar">
           <NavItem icon={<LayoutDashboard size={20} />} label="Dashboard" path="/dashboard" currentPath={location.pathname} navigate={navigate} />
-          <NavItem icon={<Package size={20} />} label="Products" path="/dashboard/products" currentPath={location.pathname} navigate={navigate} />
-          <NavItem icon={<LayoutDashboard size={20} />} label="Inventory" path="/dashboard/inventory" currentPath={location.pathname} navigate={navigate} />
-          <NavItem icon={<Package size={20} />} label="Receive GRN" path="/dashboard/grn" currentPath={location.pathname} navigate={navigate} />
-          <NavItem icon={<PackageMinus size={20} />} label="Return GRTN" path="/dashboard/grtn" currentPath={location.pathname} navigate={navigate} />
-          <NavItem icon={<ShoppingCart size={20} />} label="Sales" path="/dashboard/sales" currentPath={location.pathname} navigate={navigate} />
-          <NavItem icon={<Truck size={20} />} label="Vehicles" path="/dashboard/vehicles" currentPath={location.pathname} navigate={navigate} />
-          <NavItem icon={<Users size={20} />} label="Customers" path="/dashboard/customers" currentPath={location.pathname} navigate={navigate} />
-          <NavItem icon={<Users size={20} />} label="Suppliers" path="/dashboard/suppliers" currentPath={location.pathname} navigate={navigate} />
-          <NavItem icon={<Banknote size={20} />} label="Sup. Payments" path="/dashboard/supplier-payments" currentPath={location.pathname} navigate={navigate} />
-          <NavItem icon={<Banknote size={20} />} label="Cheques" path="/dashboard/cheques" currentPath={location.pathname} navigate={navigate} />
-          <NavItem icon={<FileText size={20} />} label="Reports" path="/dashboard/reports" currentPath={location.pathname} navigate={navigate} />
-          <NavItem icon={<Cloud size={20} />} label="Cloud Sync" path="/dashboard/cloud-sync" currentPath={location.pathname} navigate={navigate} />
+          
+          {hasRole(['Store Manager']) && (
+            <>
+              <NavItem icon={<Package size={20} />} label="Products" path="/dashboard/products" currentPath={location.pathname} navigate={navigate} />
+              <NavItem icon={<LayoutDashboard size={20} />} label="Inventory" path="/dashboard/inventory" currentPath={location.pathname} navigate={navigate} />
+              <NavItem icon={<Package size={20} />} label="Receive GRN" path="/dashboard/grn" currentPath={location.pathname} navigate={navigate} />
+              <NavItem icon={<PackageMinus size={20} />} label="Return GRTN" path="/dashboard/grtn" currentPath={location.pathname} navigate={navigate} />
+            </>
+          )}
+
+          {hasRole(['Sales Officer']) && (
+            <>
+              <NavItem icon={<Users size={20} />} label="Customers" path="/dashboard/customers" currentPath={location.pathname} navigate={navigate} />
+              <NavItem icon={<ShoppingCart size={20} />} label="Sales" path="/dashboard/sales" currentPath={location.pathname} navigate={navigate} />
+            </>
+          )}
+
+          {hasRole(['Director', 'Accountant']) && (
+            <>
+              <NavItem icon={<Users size={20} />} label="Suppliers" path="/dashboard/suppliers" currentPath={location.pathname} navigate={navigate} />
+              <NavItem icon={<Banknote size={20} />} label="Sup. Payments" path="/dashboard/supplier-payments" currentPath={location.pathname} navigate={navigate} />
+              <NavItem icon={<Banknote size={20} />} label="Cheques" path="/dashboard/cheques" currentPath={location.pathname} navigate={navigate} />
+            </>
+          )}
+
+          {hasRole(['Director']) && (
+            <>
+              <NavItem icon={<FileText size={20} />} label="Reports" path="/dashboard/reports" currentPath={location.pathname} navigate={navigate} />
+            </>
+          )}
+
+          {hasRole(['Admin']) && (
+            <>
+              <NavItem icon={<Truck size={20} />} label="Vehicles" path="/dashboard/vehicles" currentPath={location.pathname} navigate={navigate} />
+              <NavItem icon={<Cloud size={20} />} label="Cloud Sync" path="/dashboard/cloud-sync" currentPath={location.pathname} navigate={navigate} />
+            </>
+          )}
+
+          {hasRole(['Admin', 'Director', 'Accountant', 'Store Manager']) && (
+            <NavItem icon={<CheckCircle size={20} />} label="Approval Center" path="/dashboard/approvals" currentPath={location.pathname} navigate={navigate} />
+          )}
         </nav>
 
         <div className="p-4 border-t border-slate-800">
-          <NavItem icon={<Settings size={20} />} label="Settings" path="/dashboard/settings" currentPath={location.pathname} navigate={navigate} />
+          {hasRole(['Admin']) && (
+            <NavItem icon={<Settings size={20} />} label="Settings" path="/dashboard/settings" currentPath={location.pathname} navigate={navigate} />
+          )}
           <button 
-            onClick={() => navigate('/login')}
+            onClick={handleLogout}
             className="w-full flex items-center space-x-3 px-4 py-3 rounded-md text-red-400 hover:bg-slate-800 hover:text-red-300 transition-colors mt-2"
           >
             <LogOut size={20} />
@@ -61,11 +101,11 @@ export default function Dashboard() {
           <h2 className="text-xl font-semibold text-slate-800"></h2>
           <div className="flex items-center space-x-4">
             <div className="text-sm text-right">
-              <p className="font-medium text-slate-700">Director Account</p>
-              <p className="text-slate-500">Welcome back</p>
+              <p className="font-medium text-slate-700">{user?.full_name || 'System User'}</p>
+              <p className="text-slate-500">{user?.role || 'Guest'}</p>
             </div>
-            <div className="h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center text-blue-700 font-bold">
-              DA
+            <div className="h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center text-blue-700 font-bold uppercase">
+              {user?.username?.substring(0, 2) || 'GU'}
             </div>
           </div>
         </header>

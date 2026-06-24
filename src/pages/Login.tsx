@@ -1,15 +1,41 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
 
 export default function Login() {
   const navigate = useNavigate();
+  const { login } = useAuth();
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    // Temporary mock login
-    navigate('/dashboard');
+    setError('');
+    
+    try {
+      // @ts-ignore
+      if (window.electronAPI) {
+        // @ts-ignore
+        const user = await window.electronAPI.loginUser({ username, password });
+        if (user) {
+          login(user);
+          navigate('/dashboard');
+        } else {
+          setError('Invalid username or password');
+        }
+      } else {
+        // Mock fallback for browser dev
+        if (username === 'admin' && password === 'admin123') {
+          login({ id: 1, username: 'admin', role: 'Admin', full_name: 'Admin User' });
+          navigate('/dashboard');
+        } else {
+          setError('Invalid credentials');
+        }
+      }
+    } catch (err) {
+      setError('Login failed due to a system error.');
+    }
   };
 
   return (
@@ -19,6 +45,8 @@ export default function Login() {
           <h1 className="text-3xl font-bold text-slate-800">ERP System</h1>
           <p className="text-sm text-slate-500 mt-2">Sign in to your account</p>
         </div>
+        
+        {error && <div className="mb-4 p-3 bg-red-100 text-red-700 text-sm rounded">{error}</div>}
         
         <form onSubmit={handleLogin} className="space-y-6">
           <div>

@@ -199,6 +199,11 @@ function initDatabase() {
       INSERT OR IGNORE INTO users (username, password, role, full_name) VALUES ('admin', 'admin123', 'Director', 'System Administrator');
     `);
     
+    try {
+      db.exec("ALTER TABLE users ADD COLUMN full_name TEXT");
+    } catch(e) {}
+
+    
     console.log('Database initialized successfully.');
   } catch (error) {
     console.error('Error initializing database:', error);
