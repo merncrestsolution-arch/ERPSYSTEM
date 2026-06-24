@@ -256,11 +256,22 @@ export const supabaseAPI = {
     return data || [];
   },
   loginUser: async ({ username, password }: any) => {
-    const { data } = await supabase.from('users').select('*').eq('username', username).single();
-    if (!data) return null;
+    const cleanedUsername = (username || '').trim();
+    const { data, error } = await supabase
+      .from('users')
+      .select('*')
+      .eq('username', cleanedUsername)
+      .limit(1)
+      .single();
+
+    if (error) {
+      console.error('Supabase login error', error);
+      return { user: null, error };
+    }
+    if (!data) return { user: null, error: null };
 
     const ok = await verifyPassword(password, data.password);
-    if (!ok) return null;
+    if (!ok) return { user: null, error: null };
 
     // Transparently upgrade legacy plaintext passwords to a hash on first login.
     if (!isHashed(data.password)) {
@@ -268,7 +279,10 @@ export const supabaseAPI = {
       await supabase.from('users').update({ password: hashed }).eq('id', data.id);
     }
 
-    return { id: data.id, username: data.username, role: data.role, full_name: data.full_name };
+    return { 
+      user: { id: data.id, username: data.username, role: data.role, full_name: data.full_name },
+      error: null
+    };
   },
   addUser: async (userData: any) => {
     const hashed = await hashPassword(userData.password);

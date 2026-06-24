@@ -15,10 +15,11 @@ export default function Login() {
     setError('');
     
     try {
+      const cleanedUsername = username.trim();
       // @ts-ignore
       if (window.electronAPI) {
         // @ts-ignore
-        const user = await window.electronAPI.loginUser({ username, password });
+        const user = await window.electronAPI.loginUser({ username: cleanedUsername, password });
         if (user) {
           login(user);
           navigate('/dashboard');
@@ -29,16 +30,20 @@ export default function Login() {
         // Web/PWA: use Supabase if configured
         const hasSupabase = Boolean(import.meta.env.VITE_SUPABASE_URL && import.meta.env.VITE_SUPABASE_ANON_KEY);
         if (hasSupabase) {
-          const user = await supabaseAPI.loginUser({ username, password });
-          if (user) {
-            login(user);
-            navigate('/dashboard');
-          } else {
-            setError('Invalid username or password');
+          const { user, error: supaErr } = await supabaseAPI.loginUser({ username: cleanedUsername, password });
+          if (supaErr) {
+            setError(`Login error: ${supaErr.message || 'Supabase authentication failed'}`);
+            return;
           }
+          if (!user) {
+            setError('Invalid username or password');
+            return;
+          }
+          login(user);
+          navigate('/dashboard');
         } else {
           // Dev fallback only
-          if (username === 'admin' && password === 'admin123') {
+          if (cleanedUsername === 'admin' && password === 'admin123') {
             login({ id: 1, username: 'admin', role: 'Admin', full_name: 'Admin User' });
             navigate('/dashboard');
           } else {
