@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Search, Trash2, PackageMinus, Edit2 } from 'lucide-react';
+import { Plus, Search, Trash2, PackageMinus, Edit2, ArrowLeftRight } from 'lucide-react';
 
 export default function GRTN() {
   const [grtns, setGrtns] = useState<any[]>([]);

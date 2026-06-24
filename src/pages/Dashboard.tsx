@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useNavigate, Outlet, useLocation } from 'react-router-dom';
 import { 
   LayoutDashboard, 
@@ -25,6 +25,8 @@ export default function Dashboard() {
   const location = useLocation();
   const { user, logout, hasRole } = useAuth();
   const [isSidebarOpen, setSidebarOpen] = useState(false);
+
+  const toggleSidebar = () => setSidebarOpen(!isSidebarOpen);
 
   const handleLogout = () => {
     logout();
