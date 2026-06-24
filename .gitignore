@@ -31,3 +31,9 @@ dist-ssr
 
 # Stray debug APK at repo root (the distributable lives at public/erp-app.apk)
 /app-debug.apk
+
+# Android signing secrets and local SDK config
+android/keystore.properties
+android/local.properties
+*.jks
+*.keystore
