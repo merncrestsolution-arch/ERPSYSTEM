@@ -41,11 +41,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const hasRole = (allowedRoles: string[]) => {
     if (!user) return false;
-    if (user.role === 'Admin' || user.role === 'Director') {
-      // Admin/Director usually have top-level access, but let's be strict for menus
-      // We will handle specific overrides in the component level.
-    }
-    return allowedRoles.includes(user.role) || user.role === 'Admin';
+    // Admin and Director have full access to view all modules
+    return allowedRoles.includes(user.role) || user.role === 'Admin' || user.role === 'Director';
   };
 
   return (
