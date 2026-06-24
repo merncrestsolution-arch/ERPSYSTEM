@@ -109,6 +109,19 @@ export default function Sales() {
       return;
     }
 
+    let finalStatus = 'Completed';
+    if (saleType === 'Credit') {
+      const customer = customers.find(c => c.id === parseInt(customerId));
+      if (customer) {
+         const projectedDebt = (customer.outstanding_balance || 0) + netAmount;
+         if (projectedDebt > customer.credit_limit) {
+            const confirmMsg = `WARNING: Customer credit limit exceeded!\n\nLimit: LKR ${customer.credit_limit.toFixed(2)}\nCurrent Debt: LKR ${(customer.outstanding_balance || 0).toFixed(2)}\nNew Bill: LKR ${netAmount.toFixed(2)}\nProjected Debt: LKR ${projectedDebt.toFixed(2)}\n\nThis sale will be saved as "Pending Approval" and requires Super Admin approval to process.\n\nDo you want to proceed?`;
+            if (!window.confirm(confirmMsg)) return;
+            finalStatus = 'Pending Approval';
+         }
+      }
+    }
+
     // Preserve original invoice number if editing
     const invoiceNumber = editingSaleId 
       ? sales.find(s => s.id === editingSaleId)?.invoice_number 
@@ -118,6 +131,7 @@ export default function Sales() {
       customer_id: parseInt(customerId),
       invoice_number: invoiceNumber,
       sale_type: saleType,
+      status: finalStatus,
       total_amount: subTotal,
       discount: discount || 0,
       net_amount: netAmount,

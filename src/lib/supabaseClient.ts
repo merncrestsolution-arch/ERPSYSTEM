@@ -141,13 +141,15 @@ export const supabaseAPI = {
 
     for (const item of items) {
       await supabase.from('sale_items').insert([{ ...item, sale_id: sale.id }]);
-      const { data: product } = await supabase.from('products').select('stock_quantity').eq('id', item.product_id).single();
-      if (product) {
-        await supabase.from('products').update({ stock_quantity: (product.stock_quantity || 0) - item.quantity }).eq('id', item.product_id);
+      if (saleInfo.status !== 'Pending Approval') {
+        const { data: product } = await supabase.from('products').select('stock_quantity').eq('id', item.product_id).single();
+        if (product) {
+          await supabase.from('products').update({ stock_quantity: (product.stock_quantity || 0) - item.quantity }).eq('id', item.product_id);
+        }
       }
     }
 
-    if (saleInfo.sale_type === 'Credit') {
+    if (saleInfo.sale_type === 'Credit' && saleInfo.status !== 'Pending Approval') {
       const { data: cust } = await supabase.from('customers').select('outstanding_balance').eq('id', saleInfo.customer_id).single();
       if (cust) {
         await supabase.from('customers').update({ outstanding_balance: (cust.outstanding_balance || 0) + saleInfo.net_amount }).eq('id', saleInfo.customer_id);
@@ -254,11 +256,13 @@ export const supabaseAPI = {
     const { data: grns } = await supabase.from('grns').select('id, grn_number, total_amount, status, created_at').like('status', 'Pending%');
     const { data: cheques } = await supabase.from('cheques').select('id, cheque_number, amount, status, created_at').like('status', 'Pending%');
     const { data: grtns } = await supabase.from('grtns').select('id, grtn_number, total_amount, status, created_at').like('status', 'Pending%');
+    const { data: sales } = await supabase.from('sales').select('id, invoice_number, net_amount, status, created_at').like('status', 'Pending%');
     
     const combined = [
       ...(grns || []).map(g => ({ id: g.id, reference: g.grn_number, amount: g.total_amount, status: g.status, type: 'GRN', created_at: g.created_at })),
       ...(cheques || []).map(c => ({ id: c.id, reference: c.cheque_number, amount: c.amount, status: c.status, type: 'Cheque', created_at: c.created_at })),
-      ...(grtns || []).map(g => ({ id: g.id, reference: g.grtn_number, amount: g.total_amount, status: g.status, type: 'GRTN', created_at: g.created_at }))
+      ...(grtns || []).map(g => ({ id: g.id, reference: g.grtn_number, amount: g.total_amount, status: g.status, type: 'GRTN', created_at: g.created_at })),
+      ...(sales || []).map(s => ({ id: s.id, reference: s.invoice_number, amount: s.net_amount, status: s.status, type: 'Sale', created_at: s.created_at }))
     ];
     
     return combined.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
@@ -267,6 +271,24 @@ export const supabaseAPI = {
     if (type === 'GRN') await supabase.from('grns').update({ status: newStatus }).eq('id', id);
     if (type === 'Cheque') await supabase.from('cheques').update({ status: newStatus }).eq('id', id);
     if (type === 'GRTN') await supabase.from('grtns').update({ status: newStatus }).eq('id', id);
+    if (type === 'Sale') {
+      await supabase.from('sales').update({ status: newStatus }).eq('id', id);
+      if (newStatus === 'Completed') {
+        const { data: sale } = await supabase.from('sales').select('*').eq('id', id).single();
+        const { data: items } = await supabase.from('sale_items').select('*').eq('sale_id', id);
+        
+        if (sale && items) {
+          for (const item of items) {
+             const { data: p } = await supabase.from('products').select('stock_quantity').eq('id', item.product_id).single();
+             if (p) await supabase.from('products').update({ stock_quantity: (p.stock_quantity || 0) - item.quantity }).eq('id', item.product_id);
+          }
+          if (sale.sale_type === 'Credit') {
+             const { data: c } = await supabase.from('customers').select('outstanding_balance').eq('id', sale.customer_id).single();
+             if (c) await supabase.from('customers').update({ outstanding_balance: (c.outstanding_balance || 0) + sale.net_amount }).eq('id', sale.customer_id);
+          }
+        }
+      }
+    }
     return true;
   },
   updateProduct: async (id: number, data: any) => {
@@ -291,13 +313,15 @@ export const supabaseAPI = {
     const { data: oldItems } = await supabase.from('sale_items').select('*').eq('sale_id', id);
     
     if (oldSale && oldItems) {
-      for (const item of oldItems) {
-        const { data: p } = await supabase.from('products').select('stock_quantity').eq('id', item.product_id).single();
-        if (p) await supabase.from('products').update({ stock_quantity: (p.stock_quantity || 0) + item.quantity }).eq('id', item.product_id);
-      }
-      if (oldSale.sale_type === 'Credit') {
-        const { data: c } = await supabase.from('customers').select('outstanding_balance').eq('id', oldSale.customer_id).single();
-        if (c) await supabase.from('customers').update({ outstanding_balance: (c.outstanding_balance || 0) - oldSale.net_amount }).eq('id', oldSale.customer_id);
+      if (oldSale.status !== 'Pending Approval') {
+        for (const item of oldItems) {
+          const { data: p } = await supabase.from('products').select('stock_quantity').eq('id', item.product_id).single();
+          if (p) await supabase.from('products').update({ stock_quantity: (p.stock_quantity || 0) + item.quantity }).eq('id', item.product_id);
+        }
+        if (oldSale.sale_type === 'Credit') {
+          const { data: c } = await supabase.from('customers').select('outstanding_balance').eq('id', oldSale.customer_id).single();
+          if (c) await supabase.from('customers').update({ outstanding_balance: (c.outstanding_balance || 0) - oldSale.net_amount }).eq('id', oldSale.customer_id);
+        }
       }
       await supabase.from('sale_items').delete().eq('sale_id', id);
     }
@@ -308,12 +332,14 @@ export const supabaseAPI = {
 
     for (const item of items) {
       await supabase.from('sale_items').insert([{ ...item, sale_id: id }]);
-      const { data: product } = await supabase.from('products').select('stock_quantity').eq('id', item.product_id).single();
-      if (product) {
-        await supabase.from('products').update({ stock_quantity: (product.stock_quantity || 0) - item.quantity }).eq('id', item.product_id);
+      if (saleInfo.status !== 'Pending Approval') {
+        const { data: product } = await supabase.from('products').select('stock_quantity').eq('id', item.product_id).single();
+        if (product) {
+          await supabase.from('products').update({ stock_quantity: (product.stock_quantity || 0) - item.quantity }).eq('id', item.product_id);
+        }
       }
     }
-    if (saleInfo.sale_type === 'Credit') {
+    if (saleInfo.sale_type === 'Credit' && saleInfo.status !== 'Pending Approval') {
       const { data: cust } = await supabase.from('customers').select('outstanding_balance').eq('id', saleInfo.customer_id).single();
       if (cust) {
         await supabase.from('customers').update({ outstanding_balance: (cust.outstanding_balance || 0) + saleInfo.net_amount }).eq('id', saleInfo.customer_id);
