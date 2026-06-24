@@ -1,5 +1,5 @@
 {
-  "version": "1.0.0",
+  "version": "1.0.1",
   "apkUrl": "/erp-app.apk",
-  "notes": "Latest mobile build with responsive fixes and print updates"
+  "notes": "Login fix (Supabase URL), correct app icon, and mobile-responsive UI"
 }
