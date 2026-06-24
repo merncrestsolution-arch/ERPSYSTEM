@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, Search, Trash2, ShoppingCart, UserCheck, Percent, Edit } from 'lucide-react';
+import { Plus, Minus, Search, Trash2, ShoppingCart, UserCheck, Percent, Edit, X } from 'lucide-react';
 
 export default function Sales() {
   const navigate = useNavigate();
@@ -9,6 +9,7 @@ export default function Sales() {
   const [products, setProducts] = useState<any[]>([]);
   
   const [search, setSearch] = useState('');
+  const [productSearch, setProductSearch] = useState('');
   const [isModalOpen, setModalOpen] = useState(false);
   const [editingSaleId, setEditingSaleId] = useState<number | null>(null);
 
@@ -44,10 +45,6 @@ export default function Sales() {
     }
   };
 
-  const handleAddItem = () => {
-    setSaleItems([...saleItems, { product_id: '', quantity: 1, selling_price: 0 }]);
-  };
-
   const updateItem = (index: number, field: string, value: string | number) => {
     const newItems = [...saleItems];
     newItems[index] = { ...newItems[index], [field]: value };
@@ -60,12 +57,47 @@ export default function Sales() {
     setSaleItems(newItems);
   };
 
+  // Add a product to the cart; if it already exists, just bump the quantity.
+  const addProductToCart = (product: any) => {
+    const existingIndex = saleItems.findIndex(i => i.product_id === product.id.toString());
+    if (existingIndex >= 0) {
+      const newItems = [...saleItems];
+      newItems[existingIndex] = { ...newItems[existingIndex], quantity: newItems[existingIndex].quantity + 1 };
+      setSaleItems(newItems);
+    } else {
+      setSaleItems([...saleItems, { product_id: product.id.toString(), quantity: 1, selling_price: product.selling_price || 0 }]);
+    }
+    setProductSearch('');
+  };
+
+  const changeQty = (index: number, delta: number) => {
+    const newItems = [...saleItems];
+    const next = (newItems[index].quantity || 0) + delta;
+    if (next <= 0) {
+      newItems.splice(index, 1);
+    } else {
+      newItems[index] = { ...newItems[index], quantity: next };
+    }
+    setSaleItems(newItems);
+  };
+
+  const productName = (id: string) => products.find(p => p.id === parseInt(id))?.name || 'Unknown';
+  const productStock = (id: string) => products.find(p => p.id === parseInt(id))?.stock_quantity ?? 0;
+
+  const filteredPickerProducts = productSearch.trim()
+    ? products.filter(p =>
+        p.name.toLowerCase().includes(productSearch.toLowerCase()) ||
+        (p.barcode && p.barcode.toString().includes(productSearch))
+      ).slice(0, 8)
+    : [];
+
   const openAddModal = () => {
     setEditingSaleId(null);
     setCustomerId('');
     setSaleType('Cash');
     setDiscount(0);
     setSaleItems([]);
+    setProductSearch('');
     setModalOpen(true);
   };
 
@@ -75,6 +107,7 @@ export default function Sales() {
       const details = await window.electronAPI.getSaleDetails(sale.id);
       if (details) {
         setEditingSaleId(sale.id);
+        setProductSearch('');
         setCustomerId(details.customer_id.toString());
         setSaleType(details.sale_type);
         setDiscount(details.total_amount ? (details.discount / details.total_amount) * 100 : 0);
@@ -244,107 +277,133 @@ export default function Sales() {
       </div>
 
       {isModalOpen && (
-        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg shadow-xl w-full max-w-5xl max-h-[90vh] flex flex-col overflow-hidden">
-            <div className="px-6 py-4 border-b border-slate-200 flex justify-between items-center bg-blue-50 shrink-0">
-              <h3 className="text-xl font-bold text-blue-900 flex items-center gap-2">
-                <ShoppingCart /> {editingSaleId ? 'Edit Sale / Bill' : 'Point of Sale Checkout'}
+        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex sm:items-center justify-center z-50 sm:p-4">
+          <div className="bg-white sm:rounded-lg shadow-xl w-full sm:max-w-5xl h-full sm:h-auto sm:max-h-[92vh] flex flex-col overflow-hidden">
+            <div className="px-4 sm:px-6 py-4 border-b border-slate-200 flex justify-between items-center bg-blue-50 shrink-0">
+              <h3 className="text-lg sm:text-xl font-bold text-blue-900 flex items-center gap-2">
+                <ShoppingCart size={22} /> {editingSaleId ? 'Edit Sale' : 'New Sale'}
               </h3>
-              <button onClick={() => setModalOpen(false)} className="text-slate-400 hover:text-slate-600">✕</button>
+              <button onClick={() => setModalOpen(false)} className="text-slate-500 hover:text-slate-700 p-1" aria-label="Close">
+                <X size={24} />
+              </button>
             </div>
-            <div className="p-4 sm:p-6 overflow-y-auto flex-1 flex flex-col lg:flex-row gap-6">
-              {/* Left Column: Items */}
-              <div className="flex-1 overflow-x-auto table-wrapper">
-                <div className="mb-4 flex justify-between items-center">
-                  <h4 className="font-semibold text-slate-800 flex items-center gap-2">Sale Items</h4>
-                  <button onClick={handleAddItem} type="button" className="text-sm bg-slate-100 text-blue-600 px-3 py-1 rounded hover:bg-slate-200 font-medium">+ Add Item Line</button>
+
+            <div className="overflow-y-auto flex-1 flex flex-col lg:flex-row gap-0 lg:gap-6 lg:p-6">
+              {/* Items section */}
+              <div className="flex-1 p-4 lg:p-0 flex flex-col min-w-0">
+                {/* Product search picker */}
+                <div className="relative mb-3">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+                  <input
+                    type="text"
+                    inputMode="search"
+                    placeholder="Search product by name or barcode..."
+                    value={productSearch}
+                    onChange={e => setProductSearch(e.target.value)}
+                    className="w-full pl-10 pr-4 py-3 border border-slate-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 outline-none text-base"
+                  />
+                  {filteredPickerProducts.length > 0 && (
+                    <div className="absolute z-20 left-0 right-0 mt-1 bg-white border border-slate-200 rounded-lg shadow-lg max-h-72 overflow-y-auto">
+                      {filteredPickerProducts.map(p => (
+                        <button
+                          key={p.id}
+                          type="button"
+                          onClick={() => addProductToCart(p)}
+                          className="w-full text-left px-4 py-3 hover:bg-blue-50 active:bg-blue-100 border-b border-slate-100 last:border-0 flex justify-between items-center gap-3"
+                        >
+                          <span className="min-w-0">
+                            <span className="block font-medium text-slate-800 truncate">{p.name}</span>
+                            <span className="block text-xs text-slate-500">Stock: {p.stock_quantity} • LKR {(p.selling_price || 0).toFixed(2)}</span>
+                          </span>
+                          <Plus size={18} className="text-blue-600 shrink-0" />
+                        </button>
+                      ))}
+                    </div>
+                  )}
                 </div>
 
-                <table className="w-full text-left border-collapse border border-slate-200 rounded-md overflow-hidden">
-                  <thead className="bg-slate-50 border-b border-slate-200">
-                    <tr>
-                      <th className="px-4 py-2 text-xs font-semibold text-slate-600">Product</th>
-                      <th className="px-4 py-2 text-xs font-semibold text-slate-600 w-24">Qty</th>
-                      <th className="px-4 py-2 text-xs font-semibold text-slate-600 w-32">Unit Price</th>
-                      <th className="px-4 py-2 text-xs font-semibold text-slate-600 w-32">Total</th>
-                      <th className="px-4 py-2 w-10"></th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {saleItems.map((item, index) => (
-                      <tr key={index} className="border-b border-slate-200">
-                        <td className="p-2">
-                          <select 
-                            value={item.product_id}
-                            onChange={e => {
-                              const val = e.target.value;
-                              const prod = products.find(p => p.id === parseInt(val));
-                              const newItems = [...saleItems];
-                              newItems[index] = { ...item, product_id: val, selling_price: prod ? prod.selling_price : 0 };
-                              setSaleItems(newItems);
-                            }}
-                            className="w-full px-2 py-1.5 border border-slate-300 rounded outline-none"
-                            required
-                          >
-                            <option value="">Select Product...</option>
-                            {products.map(p => <option key={p.id} value={p.id}>{p.name} (Stock: {p.stock_quantity})</option>)}
-                          </select>
-                        </td>
-                        <td className="p-2">
-                          <input type="number" min="1" value={item.quantity} onChange={e => updateItem(index, 'quantity', parseInt(e.target.value) || 0)} className="w-full px-2 py-1.5 border border-slate-300 rounded outline-none" />
-                        </td>
-                        <td className="p-2">
-                          <input type="number" step="0.01" value={item.selling_price} onChange={e => updateItem(index, 'selling_price', parseFloat(e.target.value) || 0)} className="w-full px-2 py-1.5 border border-slate-300 rounded outline-none" />
-                        </td>
-                        <td className="p-2 font-medium text-slate-700">
-                          {(item.quantity * item.selling_price).toFixed(2)}
-                        </td>
-                        <td className="p-2 text-center">
-                          <button onClick={() => removeItem(index)} type="button" className="text-red-500 hover:text-red-700"><Trash2 size={16}/></button>
-                        </td>
-                      </tr>
-                    ))}
-                    {saleItems.length === 0 && (
-                      <tr><td colSpan={5} className="p-6 text-center text-sm text-slate-500 border border-dashed border-slate-300 m-2 rounded">Cart is empty. Click "+ Add Item Line".</td></tr>
-                    )}
-                  </tbody>
-                </table>
+                <div className="text-sm font-semibold text-slate-700 mb-2 flex items-center justify-between">
+                  <span>Cart ({saleItems.length})</span>
+                </div>
+
+                {/* Cart items as cards */}
+                <div className="space-y-2 flex-1">
+                  {saleItems.map((item, index) => (
+                    <div key={index} className="border border-slate-200 rounded-lg p-3 bg-white shadow-sm">
+                      <div className="flex justify-between items-start gap-2 mb-2">
+                        <div className="min-w-0">
+                          <div className="font-medium text-slate-800 truncate">{productName(item.product_id)}</div>
+                          <div className="text-xs text-slate-400">In stock: {productStock(item.product_id)}</div>
+                        </div>
+                        <button onClick={() => removeItem(index)} type="button" className="text-red-500 hover:text-red-700 p-1 shrink-0"><Trash2 size={18}/></button>
+                      </div>
+                      <div className="flex items-center justify-between gap-3 flex-wrap">
+                        <div className="flex items-center gap-2">
+                          <button type="button" onClick={() => changeQty(index, -1)} className="w-9 h-9 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-700 flex items-center justify-center"><Minus size={16}/></button>
+                          <input
+                            type="number"
+                            min="1"
+                            value={item.quantity}
+                            onChange={e => updateItem(index, 'quantity', parseInt(e.target.value) || 0)}
+                            className="w-14 text-center px-1 py-1.5 border border-slate-300 rounded outline-none"
+                          />
+                          <button type="button" onClick={() => changeQty(index, 1)} className="w-9 h-9 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-700 flex items-center justify-center"><Plus size={16}/></button>
+                        </div>
+                        <div className="flex items-center gap-1 text-sm">
+                          <span className="text-slate-500">@</span>
+                          <input
+                            type="number"
+                            step="0.01"
+                            value={item.selling_price}
+                            onChange={e => updateItem(index, 'selling_price', parseFloat(e.target.value) || 0)}
+                            className="w-24 px-2 py-1.5 border border-slate-300 rounded text-right outline-none"
+                          />
+                        </div>
+                        <div className="font-semibold text-slate-800 ml-auto">LKR {(item.quantity * item.selling_price).toFixed(2)}</div>
+                      </div>
+                    </div>
+                  ))}
+                  {saleItems.length === 0 && (
+                    <div className="p-8 text-center text-sm text-slate-500 border border-dashed border-slate-300 rounded-lg">
+                      Cart is empty. Search a product above and tap it to add.
+                    </div>
+                  )}
+                </div>
               </div>
 
-              {/* Right Column: Checkout Info */}
-              <div className="w-full lg:w-80 bg-slate-50 p-4 rounded-lg border border-slate-200 flex flex-col shrink-0">
-                <h4 className="font-semibold text-slate-800 mb-4 border-b pb-2 flex items-center gap-2"><UserCheck size={18}/> Customer Details</h4>
+              {/* Checkout section */}
+              <div className="w-full lg:w-80 bg-slate-50 p-4 lg:rounded-lg border-t lg:border border-slate-200 flex flex-col shrink-0">
+                <h4 className="font-semibold text-slate-800 mb-3 flex items-center gap-2"><UserCheck size={18}/> Customer</h4>
                 <div className="mb-4">
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Select Customer</label>
                   <select 
                     value={customerId} 
                     onChange={e => setCustomerId(e.target.value)} 
-                    className="w-full px-3 py-2 border border-slate-300 rounded-md bg-white focus:ring-blue-500 focus:border-blue-500 outline-none"
+                    className="w-full px-3 py-3 border border-slate-300 rounded-md bg-white focus:ring-blue-500 focus:border-blue-500 outline-none text-base"
                     required
                   >
                     <option value="">Select Customer...</option>
                     {customers.map(c => <option key={c.id} value={c.id}>{c.shop_name} ({c.owner_name})</option>)}
                   </select>
                 </div>
-                <div className="mb-6">
+                <div className="mb-4">
                   <label className="block text-sm font-medium text-slate-700 mb-1">Sale Type</label>
                   <div className="flex bg-white border border-slate-300 rounded-md overflow-hidden">
-                    <button type="button" onClick={() => setSaleType('Cash')} className={`flex-1 py-2 text-sm font-medium transition-colors ${saleType === 'Cash' ? 'bg-blue-600 text-white' : 'text-slate-600 hover:bg-slate-50'}`}>Cash</button>
-                    <button type="button" onClick={() => setSaleType('Credit')} className={`flex-1 py-2 text-sm font-medium transition-colors ${saleType === 'Credit' ? 'bg-blue-600 text-white' : 'text-slate-600 hover:bg-slate-50'}`}>Credit</button>
+                    <button type="button" onClick={() => setSaleType('Cash')} className={`flex-1 py-2.5 text-sm font-medium transition-colors ${saleType === 'Cash' ? 'bg-blue-600 text-white' : 'text-slate-600 hover:bg-slate-50'}`}>Cash</button>
+                    <button type="button" onClick={() => setSaleType('Credit')} className={`flex-1 py-2.5 text-sm font-medium transition-colors ${saleType === 'Credit' ? 'bg-blue-600 text-white' : 'text-slate-600 hover:bg-slate-50'}`}>Credit</button>
                   </div>
                 </div>
 
-                <div className="mt-auto space-y-3 pt-4 border-t border-slate-200">
-                  <div className="flex justify-between text-slate-600">
+                <div className="space-y-2 pt-3 border-t border-slate-200">
+                  <div className="flex justify-between text-slate-600 text-sm">
                     <span>Subtotal:</span>
                     <span>LKR {subTotal.toFixed(2)}</span>
                   </div>
-                  <div className="flex justify-between items-center text-slate-600">
+                  <div className="flex justify-between items-center text-slate-600 text-sm">
                     <span className="flex items-center gap-1"><Percent size={14}/> Discount (%):</span>
-                    <input type="number" step="0.01" value={discount} onChange={e => setDiscount(parseFloat(e.target.value) || 0)} className="w-24 px-2 py-1 border border-slate-300 rounded text-right outline-none" />
+                    <input type="number" step="0.01" value={discount} onChange={e => setDiscount(parseFloat(e.target.value) || 0)} className="w-20 px-2 py-1 border border-slate-300 rounded text-right outline-none" />
                   </div>
                   {discount > 0 && (
-                    <div className="flex justify-between text-slate-500 text-sm">
+                    <div className="flex justify-between text-slate-500 text-xs">
                       <span>Discount Amount:</span>
                       <span>- LKR {discountAmount.toFixed(2)}</span>
                     </div>
@@ -354,7 +413,7 @@ export default function Sales() {
                     <span>LKR {netAmount.toFixed(2)}</span>
                   </div>
                 </div>
-                <button onClick={handleSaveSale} type="button" className="w-full mt-6 py-3 bg-green-600 hover:bg-green-700 text-white rounded-md font-bold transition-colors shadow-sm text-lg">
+                <button onClick={handleSaveSale} type="button" className="w-full mt-4 py-3.5 bg-green-600 hover:bg-green-700 text-white rounded-md font-bold transition-colors shadow-sm text-lg">
                   {editingSaleId ? 'Update Sale' : 'Complete Sale'}
                 </button>
               </div>

@@ -17,6 +17,7 @@ import InvoicePrint from './pages/InvoicePrint';
 import CloudSync from './pages/CloudSync';
 import Settings from './pages/Settings';
 import ApprovalCenter from './pages/ApprovalCenter';
+import LiveTracking from './pages/LiveTracking';
 import ProtectedRoute from './components/ProtectedRoute';
 import { AuthProvider } from './context/AuthContext';
 import './index.css';
@@ -55,6 +56,7 @@ function App() {
 
               <Route element={<ProtectedRoute allowedRoles={['Director']} />}>
                 <Route path="reports" element={<Reports />} />
+                <Route path="tracking" element={<LiveTracking />} />
               </Route>
 
               <Route element={<ProtectedRoute allowedRoles={['Admin']} />}>

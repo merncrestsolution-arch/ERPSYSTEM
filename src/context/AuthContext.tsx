@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
+import { startTracking, stopTracking } from '../lib/locationTracker';
 
 export interface User {
   id: number;
@@ -34,12 +35,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setIsLoading(false);
   }, []);
 
+  // Track Sales Officers' location; ensure tracking stops for anyone else.
+  useEffect(() => {
+    if (user && user.role === 'Sales Officer') {
+      startTracking({ id: user.id, username: user.username, full_name: user.full_name });
+    } else {
+      stopTracking();
+    }
+  }, [user]);
+
   const login = (userData: User) => {
     setUser(userData);
     localStorage.setItem('erp_user', JSON.stringify(userData));
   };
 
   const logout = () => {
+    stopTracking();
     setUser(null);
     localStorage.removeItem('erp_user');
   };

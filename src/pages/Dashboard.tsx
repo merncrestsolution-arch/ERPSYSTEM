@@ -16,10 +16,13 @@ import {
   Menu,
   X,
   Download,
-  HardDriveDownload
+  HardDriveDownload,
+  Navigation
 } from 'lucide-react';
 
 import { useAuth } from '../context/AuthContext';
+import MadeByMernCrest from '../components/MadeByMernCrest';
+import UpdateBanner from '../components/UpdateBanner';
 
 export default function Dashboard() {
   const navigate = useNavigate();
@@ -137,6 +140,7 @@ export default function Dashboard() {
           {hasRole(['Director']) && (
             <>
               <NavItem icon={<FileText size={20} />} label="Reports" path="/dashboard/reports" currentPath={location.pathname} navigate={navigate} onClick={() => setSidebarOpen(false)} />
+              <NavItem icon={<Navigation size={20} />} label="Live Tracking" path="/dashboard/tracking" currentPath={location.pathname} navigate={navigate} onClick={() => setSidebarOpen(false)} />
             </>
           )}
 
@@ -163,11 +167,15 @@ export default function Dashboard() {
             <LogOut size={20} />
             <span className="font-medium">Logout</span>
           </button>
+          <div className="mt-3 pt-3 border-t border-slate-800">
+            <MadeByMernCrest />
+          </div>
         </div>
       </aside>
 
       {/* Main Content Area */}
       <main className="flex-1 flex flex-col overflow-hidden">
+        <UpdateBanner />
         {/* Header */}
         <header className="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-4 md:px-8 shadow-sm z-30 shrink-0 sticky top-0">
           <div className="flex items-center gap-4 min-w-0">

@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import MadeByMernCrest from '../components/MadeByMernCrest';
 
 export default function Login() {
   const navigate = useNavigate();
@@ -79,6 +80,10 @@ export default function Login() {
             Sign In
           </button>
         </form>
+
+        <div className="mt-8 pt-4 border-t border-slate-100">
+          <MadeByMernCrest />
+        </div>
       </div>
     </div>
   );

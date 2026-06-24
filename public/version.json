@@ -1,5 +1,5 @@
 {
-  "version": "1.0.1",
+  "version": "1.1.0",
   "apkUrl": "/erp-app.apk",
-  "notes": "Login fix (Supabase URL), correct app icon, and mobile-responsive UI"
+  "notes": "Mobile sales redesign, product search, cheque payer/bank filter, live GPS tracking, and in-app updates"
 }

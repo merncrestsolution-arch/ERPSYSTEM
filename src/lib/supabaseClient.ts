@@ -192,7 +192,17 @@ export const supabaseAPI = {
     return (data || []).map(d => ({ ...d, customer_name: d.customers?.shop_name }));
   },
   addCheque: async (chequeData: any) => {
-    const { data } = await supabase.from('cheques').insert([chequeData]).select().single();
+    let { data, error } = await supabase.from('cheques').insert([chequeData]).select().single();
+    // Gracefully degrade if the optional `received_from` column hasn't been
+    // added to the database yet (run supabase_migration.sql to enable it).
+    if (error && /received_from/i.test(error.message || '')) {
+      const { received_from, ...rest } = chequeData;
+      ({ data, error } = await supabase.from('cheques').insert([rest]).select().single());
+    }
+    if (error) {
+      console.error('addCheque error', error);
+      return null;
+    }
     if (!data) return null;
 
     const { data: cust } = await supabase.from('customers').select('outstanding_balance').eq('id', chequeData.customer_id).single();
@@ -478,5 +488,47 @@ export const supabaseAPI = {
       }
     }
     return id;
+  },
+  // --- Location tracking (salesman GPS) ---
+  logLocation: async (entry: any) => {
+    try {
+      await supabase.from('location_logs').insert([entry]);
+      return true;
+    } catch (e) {
+      console.error('logLocation error', e);
+      return false;
+    }
+  },
+  // Latest known position per tracked user (for map markers).
+  getLatestLocations: async () => {
+    const { data, error } = await supabase
+      .from('location_logs')
+      .select('*')
+      .order('recorded_at', { ascending: false })
+      .limit(2000);
+    if (error) {
+      console.error('getLatestLocations error', error);
+      return [];
+    }
+    const latestByUser: Record<string, any> = {};
+    for (const row of (data || [])) {
+      const key = String(row.user_id ?? row.username);
+      if (!latestByUser[key]) latestByUser[key] = row;
+    }
+    return Object.values(latestByUser);
+  },
+  // Movement trail for one user (most recent points first).
+  getLocationTrail: async (userId: number, limit = 200) => {
+    const { data, error } = await supabase
+      .from('location_logs')
+      .select('*')
+      .eq('user_id', userId)
+      .order('recorded_at', { ascending: false })
+      .limit(limit);
+    if (error) {
+      console.error('getLocationTrail error', error);
+      return [];
+    }
+    return data || [];
   }
 };

@@ -6,10 +6,12 @@ export default function Cheques() {
   const [customers, setCustomers] = useState<any[]>([]);
   
   const [search, setSearch] = useState('');
+  const [bankFilter, setBankFilter] = useState('');
   const [isAddModalOpen, setAddModalOpen] = useState(false);
 
   // Form State
   const [customerId, setCustomerId] = useState('');
+  const [receivedFrom, setReceivedFrom] = useState('');
   const [chequeNumber, setChequeNumber] = useState('');
   const [bankName, setBankName] = useState('');
   const [branchName, setBranchName] = useState('');
@@ -46,6 +48,7 @@ export default function Cheques() {
 
     const newCheque = {
       customer_id: parseInt(customerId),
+      received_from: receivedFrom.trim() || null,
       cheque_number: chequeNumber,
       bank_name: bankName,
       branch_name: branchName,
@@ -62,6 +65,7 @@ export default function Cheques() {
         await loadData();
         setAddModalOpen(false);
         setCustomerId('');
+        setReceivedFrom('');
         setChequeNumber('');
         setBankName('');
         setBranchName('');
@@ -136,17 +140,27 @@ export default function Cheques() {
       </div>
 
       <div className="bg-white rounded-lg border border-slate-200 shadow-sm flex-1 flex flex-col overflow-hidden">
-        <div className="p-4 border-b border-slate-200 flex justify-between items-center bg-slate-50">
+        <div className="p-4 border-b border-slate-200 flex flex-col sm:flex-row gap-3 sm:items-center bg-slate-50">
           <div className="relative w-full sm:w-96">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
             <input 
               type="text" 
-              placeholder="Search cheque number, bank or customer..." 
+              placeholder="Search cheque no, customer or who gave..." 
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-md focus:ring-blue-500 focus:border-blue-500 outline-none"
             />
           </div>
+          <select
+            value={bankFilter}
+            onChange={(e) => setBankFilter(e.target.value)}
+            className="w-full sm:w-56 px-3 py-2 border border-slate-300 rounded-md bg-white focus:ring-blue-500 focus:border-blue-500 outline-none"
+          >
+            <option value="">All Banks</option>
+            {Array.from(new Set(cheques.map(c => c.bank_name).filter(Boolean))).sort().map(b => (
+              <option key={b} value={b}>{b}</option>
+            ))}
+          </select>
         </div>
 
         <div className="flex-1 overflow-auto">
@@ -155,6 +169,7 @@ export default function Cheques() {
               <tr>
                 <th className="px-6 py-3 text-xs font-semibold text-slate-600 uppercase tracking-wider">Cheque No</th>
                 <th className="px-6 py-3 text-xs font-semibold text-slate-600 uppercase tracking-wider">Customer</th>
+                <th className="px-6 py-3 text-xs font-semibold text-slate-600 uppercase tracking-wider">Who Gave</th>
                 <th className="px-6 py-3 text-xs font-semibold text-slate-600 uppercase tracking-wider">Bank/Branch</th>
                 <th className="px-6 py-3 text-xs font-semibold text-slate-600 uppercase tracking-wider">Amount</th>
                 <th className="px-6 py-3 text-xs font-semibold text-slate-600 uppercase tracking-wider">Realize Date</th>
@@ -163,10 +178,20 @@ export default function Cheques() {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-200">
-              {cheques.filter(c => c.cheque_number.toLowerCase().includes(search.toLowerCase()) || c.customer_name?.toLowerCase().includes(search.toLowerCase()) || c.bank_name.toLowerCase().includes(search.toLowerCase())).map((c) => (
+              {cheques.filter(c => {
+                const q = search.toLowerCase();
+                const matchesSearch =
+                  c.cheque_number?.toLowerCase().includes(q) ||
+                  c.customer_name?.toLowerCase().includes(q) ||
+                  c.received_from?.toLowerCase().includes(q) ||
+                  c.bank_name?.toLowerCase().includes(q);
+                const matchesBank = !bankFilter || c.bank_name === bankFilter;
+                return matchesSearch && matchesBank;
+              }).map((c) => (
                 <tr key={c.id} className="hover:bg-slate-50 transition-colors">
                   <td className="px-6 py-4 whitespace-nowrap font-medium text-slate-800">{c.cheque_number}</td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-blue-600">{c.customer_name}</td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-700">{c.received_from || c.customer_name || '—'}</td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-600">
                     <div className="flex items-center gap-1"><Building2 size={14} className="text-slate-400"/> {c.bank_name}</div>
                     <div className="text-xs text-slate-400 ml-4">{c.branch_name}</div>
@@ -199,7 +224,7 @@ export default function Cheques() {
               ))}
               {cheques.length === 0 && (
                 <tr>
-                  <td colSpan={7} className="px-6 py-12 text-center text-slate-500">
+                  <td colSpan={8} className="px-6 py-12 text-center text-slate-500">
                     No cheques registered. Click "Register Cheque" to add one.
                   </td>
                 </tr>
@@ -232,6 +257,11 @@ export default function Cheques() {
                   <option value="">Select Customer...</option>
                   {customers.map(c => <option key={c.id} value={c.id}>{c.shop_name} (Outstanding: LKR {c.outstanding_balance})</option>)}
                 </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Received From / Who Gave <span className="text-slate-400 font-normal">(optional)</span></label>
+                <input type="text" value={receivedFrom} onChange={e => setReceivedFrom(e.target.value)} className="w-full px-3 py-2 border border-slate-300 rounded-md" placeholder="Name of person who gave the cheque (defaults to customer)" />
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
