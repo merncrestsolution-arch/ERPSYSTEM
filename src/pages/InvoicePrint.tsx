@@ -29,6 +29,7 @@ export default function InvoicePrint() {
   };
 
   const handlePrint = useReactToPrint({
+    // @ts-ignore react-to-print types
     content: () => billRef.current,
     documentTitle: sale ? `Invoice-${sale.invoice_number}` : 'Invoice',
   });

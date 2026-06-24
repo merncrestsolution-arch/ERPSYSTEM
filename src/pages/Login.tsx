@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { supabaseAPI } from '../lib/supabaseClient';
 
 export default function Login() {
   const navigate = useNavigate();
@@ -25,12 +26,24 @@ export default function Login() {
           setError('Invalid username or password');
         }
       } else {
-        // Mock fallback for browser dev
-        if (username === 'admin' && password === 'admin123') {
-          login({ id: 1, username: 'admin', role: 'Admin', full_name: 'Admin User' });
-          navigate('/dashboard');
+        // Web/PWA: use Supabase if configured
+        const hasSupabase = Boolean(import.meta.env.VITE_SUPABASE_URL && import.meta.env.VITE_SUPABASE_ANON_KEY);
+        if (hasSupabase) {
+          const user = await supabaseAPI.loginUser({ username, password });
+          if (user) {
+            login(user);
+            navigate('/dashboard');
+          } else {
+            setError('Invalid username or password');
+          }
         } else {
-          setError('Invalid credentials');
+          // Dev fallback only
+          if (username === 'admin' && password === 'admin123') {
+            login({ id: 1, username: 'admin', role: 'Admin', full_name: 'Admin User' });
+            navigate('/dashboard');
+          } else {
+            setError('Invalid credentials (configure Supabase or run in desktop app).');
+          }
         }
       }
     } catch (err) {

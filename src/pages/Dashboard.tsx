@@ -15,7 +15,8 @@ import {
   CheckCircle,
   Menu,
   X,
-  Download
+  Download,
+  HardDriveDownload
 } from 'lucide-react';
 
 import { useAuth } from '../context/AuthContext';
@@ -26,6 +27,8 @@ export default function Dashboard() {
   const { user, logout, hasRole } = useAuth();
   const [isSidebarOpen, setSidebarOpen] = useState(false);
   const [apkUrl, setApkUrl] = useState('/erp-app.apk');
+  const [installPrompt, setInstallPrompt] = useState<any>(null);
+  const [installAvailable, setInstallAvailable] = useState(false);
 
   const toggleSidebar = () => setSidebarOpen(!isSidebarOpen);
 
@@ -54,6 +57,17 @@ export default function Dashboard() {
     loadVersion();
   }, []);
 
+  useEffect(() => {
+    const handleBeforeInstall = (e: Event) => {
+      e.preventDefault();
+      // @ts-ignore
+      setInstallPrompt(e);
+      setInstallAvailable(true);
+    };
+    window.addEventListener('beforeinstallprompt', handleBeforeInstall);
+    return () => window.removeEventListener('beforeinstallprompt', handleBeforeInstall);
+  }, []);
+
   const handleLogout = () => {
     logout();
     navigate('/login');
@@ -61,6 +75,17 @@ export default function Dashboard() {
 
   const handleUpdateApk = () => {
     window.open(apkUrl || '/erp-app.apk', '_blank');
+  };
+
+  const handleInstallApp = async () => {
+    if (!installPrompt) {
+      alert('Install is not available on this device/browser.');
+      return;
+    }
+    installPrompt.prompt();
+    await installPrompt.userChoice;
+    setInstallPrompt(null);
+    setInstallAvailable(false);
   };
 
   return (
@@ -152,6 +177,17 @@ export default function Dashboard() {
             <h2 className="text-lg md:text-xl font-semibold text-slate-800 truncate">ERP SYSTEM</h2>
           </div>
           <div className="flex items-center space-x-3 md:space-x-6">
+            {installAvailable && (
+              <button
+                onClick={handleInstallApp}
+                className="flex items-center gap-2 bg-blue-50 text-blue-700 hover:bg-blue-100 px-3 md:px-4 py-2 rounded-full font-semibold transition-colors text-sm border border-blue-200 shadow-sm"
+                title="Install as app"
+              >
+                <HardDriveDownload size={18} />
+                <span className="hidden md:inline">Install App</span>
+                <span className="md:hidden">Install</span>
+              </button>
+            )}
             <button
               onClick={handleUpdateApk}
               className="flex items-center gap-2 bg-emerald-100 text-emerald-800 hover:bg-emerald-200 px-3 md:px-4 py-2 rounded-full font-semibold transition-colors text-sm border border-emerald-200 shadow-sm"
