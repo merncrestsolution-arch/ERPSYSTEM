@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Search, Trash2, PackageMinus } from 'lucide-react';
+import { Plus, Search, Trash2, PackageMinus, Edit2 } from 'lucide-react';
 
 export default function GRTN() {
   const [grtns, setGrtns] = useState<any[]>([]);
@@ -7,7 +7,8 @@ export default function GRTN() {
   const [products, setProducts] = useState<any[]>([]);
   
   const [search, setSearch] = useState('');
-  const [isAddModalOpen, setAddModalOpen] = useState(false);
+  const [isModalOpen, setModalOpen] = useState(false);
+  const [editingId, setEditingId] = useState<number | null>(null);
 
   // Form State
   const [supplierId, setSupplierId] = useState('');
@@ -56,6 +57,35 @@ export default function GRTN() {
     setGrtnItems(newItems);
   };
 
+  const openAddModal = () => {
+    setEditingId(null);
+    setSupplierId('');
+    setReason('Damaged Goods');
+    setGrtnItems([]);
+    setModalOpen(true);
+  };
+
+  const openEditModal = async (grtn: any) => {
+    try {
+      // @ts-ignore
+      const details = await window.electronAPI.getGrtnDetails(grtn.id);
+      if (details) {
+        setEditingId(grtn.id);
+        setSupplierId(details.supplier_id.toString());
+        setReason(details.reason || 'Damaged Goods');
+        setGrtnItems(details.items.map((i: any) => ({
+          product_id: i.product_id.toString(),
+          quantity: i.quantity,
+          cost_price: i.cost_price
+        })));
+        setModalOpen(true);
+      }
+    } catch (e) {
+      console.error(e);
+      alert('Failed to load GRTN details');
+    }
+  };
+
   const handleSaveGRTN = async (e: React.FormEvent) => {
     e.preventDefault();
     if (grtnItems.length === 0) {
@@ -68,9 +98,11 @@ export default function GRTN() {
     }
 
     const totalAmount = grtnItems.reduce((sum, item) => sum + (item.quantity * item.cost_price), 0);
-    const grtnNumber = `GRTN-${Date.now().toString().slice(-6)}`;
+    const grtnNumber = editingId 
+      ? grtns.find(g => g.id === editingId)?.grtn_number 
+      : `GRTN-${Date.now().toString().slice(-6)}`;
 
-    const newGrtn = {
+    const payload = {
       supplier_id: parseInt(supplierId),
       grtn_number: grtnNumber,
       reason: reason,
@@ -86,13 +118,15 @@ export default function GRTN() {
     try {
       // @ts-ignore
       if (window.electronAPI) {
-        // @ts-ignore
-        await window.electronAPI.addGrtn(newGrtn);
+        if (editingId) {
+          // @ts-ignore
+          await window.electronAPI.updateGrtn(editingId, payload);
+        } else {
+          // @ts-ignore
+          await window.electronAPI.addGrtn(payload);
+        }
         await loadData();
-        setAddModalOpen(false);
-        setSupplierId('');
-        setReason('Damaged Goods');
-        setGrtnItems([]);
+        setModalOpen(false);
       }
     } catch (e) {
       console.error(e);
@@ -105,10 +139,10 @@ export default function GRTN() {
       <div className="flex justify-between items-center mb-6">
         <div>
           <h2 className="text-2xl font-bold text-slate-800">Goods Return Note (GRTN)</h2>
-          <p className="text-slate-500">Record supplier returns and deduct inventory.</p>
+          <p className="text-slate-500">Record and edit supplier returns.</p>
         </div>
         <button 
-          onClick={() => setAddModalOpen(true)}
+          onClick={openAddModal}
           className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-md font-medium flex items-center gap-2 shadow-sm transition-colors"
         >
           <Plus size={20} />
@@ -139,6 +173,7 @@ export default function GRTN() {
                 <th className="px-6 py-3 text-xs font-semibold text-slate-600 uppercase tracking-wider">Supplier</th>
                 <th className="px-6 py-3 text-xs font-semibold text-slate-600 uppercase tracking-wider">Reason</th>
                 <th className="px-6 py-3 text-xs font-semibold text-slate-600 uppercase tracking-wider">Return Value</th>
+                <th className="px-6 py-3 text-xs font-semibold text-slate-600 uppercase tracking-wider text-right">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-200">
@@ -149,11 +184,16 @@ export default function GRTN() {
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-800">{g.supplier_name}</td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-600">{g.reason}</td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-slate-800">LKR {g.total_amount.toFixed(2)}</td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-right flex justify-end gap-2">
+                    <button onClick={() => openEditModal(g)} className="text-slate-400 hover:text-blue-600 transition-colors">
+                      <Edit2 size={18} />
+                    </button>
+                  </td>
                 </tr>
               ))}
               {grtns.length === 0 && (
                 <tr>
-                  <td colSpan={5} className="px-6 py-12 text-center text-slate-500">
+                  <td colSpan={6} className="px-6 py-12 text-center text-slate-500">
                     No Returns found. Click "Create Return" to register one.
                   </td>
                 </tr>
@@ -163,12 +203,12 @@ export default function GRTN() {
         </div>
       </div>
 
-      {isAddModalOpen && (
+      {isModalOpen && (
         <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center z-50">
           <div className="bg-white rounded-lg shadow-xl w-full max-w-4xl max-h-[90vh] flex flex-col overflow-hidden">
-            <div className="px-6 py-4 border-b border-slate-200 flex justify-between items-center">
-              <h3 className="text-lg font-bold text-slate-800">Create Goods Return Note</h3>
-              <button onClick={() => setAddModalOpen(false)} className="text-slate-400 hover:text-slate-600">✕</button>
+            <div className="px-6 py-4 border-b border-slate-200 flex justify-between items-center bg-slate-50">
+              <h3 className="text-lg font-bold text-slate-800">{editingId ? 'Edit GRTN' : 'Create Goods Return Note'}</h3>
+              <button onClick={() => setModalOpen(false)} className="text-slate-400 hover:text-slate-600">✕</button>
             </div>
             <div className="p-6 overflow-y-auto flex-1">
               <div className="grid grid-cols-2 gap-6 mb-6">
@@ -260,8 +300,10 @@ export default function GRTN() {
               </div>
             </div>
             <div className="px-6 py-4 border-t border-slate-200 flex justify-end gap-3 bg-slate-50">
-              <button type="button" onClick={() => setAddModalOpen(false)} className="px-4 py-2 text-slate-700 hover:bg-slate-200 rounded-md font-medium transition-colors">Cancel</button>
-              <button onClick={handleSaveGRTN} type="button" className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-md font-medium transition-colors shadow-sm">Confirm & Deduct Stock</button>
+              <button type="button" onClick={() => setModalOpen(false)} className="px-4 py-2 text-slate-700 hover:bg-slate-200 rounded-md font-medium transition-colors">Cancel</button>
+              <button onClick={handleSaveGRTN} type="button" className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-md font-medium transition-colors shadow-sm">
+                {editingId ? 'Update GRTN' : 'Confirm & Deduct Stock'}
+              </button>
             </div>
           </div>
         </div>

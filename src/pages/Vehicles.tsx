@@ -13,7 +13,8 @@ interface Vehicle {
 export default function Vehicles() {
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [search, setSearch] = useState('');
-  const [isAddModalOpen, setAddModalOpen] = useState(false);
+  const [isModalOpen, setModalOpen] = useState(false);
+  const [editingId, setEditingId] = useState<number | null>(null);
 
   const [registrationNumber, setRegistrationNumber] = useState('');
   const [driverName, setDriverName] = useState('');
@@ -37,10 +38,28 @@ export default function Vehicles() {
     }
   };
 
-  const handleAddVehicle = async (e: React.FormEvent) => {
+  const openAddModal = () => {
+    setEditingId(null);
+    setRegistrationNumber('');
+    setDriverName('');
+    setInsuranceExpiry('');
+    setLicenseExpiry('');
+    setModalOpen(true);
+  };
+
+  const openEditModal = (vehicle: Vehicle) => {
+    setEditingId(vehicle.id);
+    setRegistrationNumber(vehicle.registration_number || '');
+    setDriverName(vehicle.driver_name || '');
+    setInsuranceExpiry(vehicle.insurance_expiry || '');
+    setLicenseExpiry(vehicle.revenue_license_expiry || '');
+    setModalOpen(true);
+  };
+
+  const handleSaveVehicle = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      const newVehicle = {
+      const payload = {
         registration_number: registrationNumber,
         driver_name: driverName,
         insurance_expiry: insuranceExpiry,
@@ -48,18 +67,19 @@ export default function Vehicles() {
       };
       // @ts-ignore
       if (window.electronAPI) {
-        // @ts-ignore
-        await window.electronAPI.addVehicle(newVehicle);
+        if (editingId) {
+          // @ts-ignore
+          await window.electronAPI.updateVehicle(editingId, payload);
+        } else {
+          // @ts-ignore
+          await window.electronAPI.addVehicle(payload);
+        }
         await loadVehicles();
-        setAddModalOpen(false);
-        setRegistrationNumber('');
-        setDriverName('');
-        setInsuranceExpiry('');
-        setLicenseExpiry('');
+        setModalOpen(false);
       }
     } catch (e) {
       console.error(e);
-      alert('Failed to add vehicle');
+      alert('Failed to save vehicle');
     }
   };
 
@@ -71,7 +91,7 @@ export default function Vehicles() {
           <p className="text-slate-500">Track distribution vehicles and driver assignments.</p>
         </div>
         <button 
-          onClick={() => setAddModalOpen(true)}
+          onClick={openAddModal}
           className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md font-medium flex items-center gap-2 shadow-sm transition-colors"
         >
           <Plus size={20} />
@@ -114,7 +134,7 @@ export default function Vehicles() {
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-600">{v.insurance_expiry}</td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-right">
-                    <button className="text-slate-400 hover:text-blue-600 transition-colors mr-3"><Edit2 size={18} /></button>
+                    <button onClick={() => openEditModal(v)} className="text-slate-400 hover:text-blue-600 transition-colors mr-3"><Edit2 size={18} /></button>
                     <button className="text-slate-400 hover:text-red-600 transition-colors"><Trash2 size={18} /></button>
                   </td>
                 </tr>
@@ -124,14 +144,14 @@ export default function Vehicles() {
         </div>
       </div>
 
-      {isAddModalOpen && (
+      {isModalOpen && (
         <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center z-50">
           <div className="bg-white rounded-lg shadow-xl w-full max-w-lg overflow-hidden">
             <div className="px-6 py-4 border-b border-slate-200 flex justify-between items-center">
-              <h3 className="text-lg font-bold text-slate-800">Add Vehicle</h3>
-              <button onClick={() => setAddModalOpen(false)} className="text-slate-400 hover:text-slate-600">✕</button>
+              <h3 className="text-lg font-bold text-slate-800">{editingId ? 'Edit Vehicle' : 'Add Vehicle'}</h3>
+              <button onClick={() => setModalOpen(false)} className="text-slate-400 hover:text-slate-600">✕</button>
             </div>
-            <form onSubmit={handleAddVehicle} className="p-6 space-y-4">
+            <form onSubmit={handleSaveVehicle} className="p-6 space-y-4">
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">Registration Number</label>
                 <input required type="text" value={registrationNumber} onChange={e => setRegistrationNumber(e.target.value)} className="w-full px-3 py-2 border border-slate-300 rounded-md" />
@@ -151,8 +171,10 @@ export default function Vehicles() {
                 </div>
               </div>
               <div className="pt-4 flex justify-end gap-3">
-                <button type="button" onClick={() => setAddModalOpen(false)} className="px-4 py-2 text-slate-700 hover:bg-slate-100 rounded-md font-medium transition-colors">Cancel</button>
-                <button type="submit" className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md font-medium transition-colors">Save</button>
+                <button type="button" onClick={() => setModalOpen(false)} className="px-4 py-2 text-slate-700 hover:bg-slate-100 rounded-md font-medium transition-colors">Cancel</button>
+                <button type="submit" className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md font-medium transition-colors">
+                  {editingId ? 'Save Changes' : 'Save Vehicle'}
+                </button>
               </div>
             </form>
           </div>

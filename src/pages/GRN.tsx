@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react';
-import { Plus, Search, Trash2, Package } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Plus, Search, Trash2, Package, Edit2 } from 'lucide-react';
 
 export default function GRN() {
   const [grns, setGrns] = useState<any[]>([]);
@@ -7,7 +7,8 @@ export default function GRN() {
   const [products, setProducts] = useState<any[]>([]);
   
   const [search, setSearch] = useState('');
-  const [isAddModalOpen, setAddModalOpen] = useState(false);
+  const [isModalOpen, setModalOpen] = useState(false);
+  const [editingId, setEditingId] = useState<number | null>(null);
 
   // Form State
   const [supplierId, setSupplierId] = useState('');
@@ -56,6 +57,35 @@ export default function GRN() {
     setGrnItems(newItems);
   };
 
+  const openAddModal = () => {
+    setEditingId(null);
+    setSupplierId('');
+    setInvoiceNo('');
+    setGrnItems([]);
+    setModalOpen(true);
+  };
+
+  const openEditModal = async (grn: any) => {
+    try {
+      // @ts-ignore
+      const details = await window.electronAPI.getGrnDetails(grn.id);
+      if (details) {
+        setEditingId(grn.id);
+        setSupplierId(details.supplier_id.toString());
+        setInvoiceNo(details.supplier_invoice_no || '');
+        setGrnItems(details.items.map((i: any) => ({
+          product_id: i.product_id.toString(),
+          quantity: i.quantity,
+          cost_price: i.cost_price
+        })));
+        setModalOpen(true);
+      }
+    } catch (e) {
+      console.error(e);
+      alert('Failed to load GRN details');
+    }
+  };
+
   const handleSaveGRN = async (e: React.FormEvent) => {
     e.preventDefault();
     if (grnItems.length === 0) {
@@ -68,9 +98,11 @@ export default function GRN() {
     }
 
     const totalAmount = grnItems.reduce((sum, item) => sum + (item.quantity * item.cost_price), 0);
-    const grnNumber = `GRN-${Date.now().toString().slice(-6)}`;
+    const grnNumber = editingId 
+      ? grns.find(g => g.id === editingId)?.grn_number 
+      : `GRN-${Date.now().toString().slice(-6)}`;
 
-    const newGrn = {
+    const payload = {
       supplier_id: parseInt(supplierId),
       grn_number: grnNumber,
       supplier_invoice_no: invoiceNo,
@@ -86,13 +118,15 @@ export default function GRN() {
     try {
       // @ts-ignore
       if (window.electronAPI) {
-        // @ts-ignore
-        await window.electronAPI.addGrn(newGrn);
+        if (editingId) {
+          // @ts-ignore
+          await window.electronAPI.updateGrn(editingId, payload);
+        } else {
+          // @ts-ignore
+          await window.electronAPI.addGrn(payload);
+        }
         await loadData();
-        setAddModalOpen(false);
-        setSupplierId('');
-        setInvoiceNo('');
-        setGrnItems([]);
+        setModalOpen(false);
       }
     } catch (e) {
       console.error(e);
@@ -105,10 +139,10 @@ export default function GRN() {
       <div className="flex justify-between items-center mb-6">
         <div>
           <h2 className="text-2xl font-bold text-slate-800">Goods Received Note (GRN)</h2>
-          <p className="text-slate-500">Record incoming stock and update inventory.</p>
+          <p className="text-slate-500">Record and edit incoming stock.</p>
         </div>
         <button 
-          onClick={() => setAddModalOpen(true)}
+          onClick={openAddModal}
           className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md font-medium flex items-center gap-2 shadow-sm transition-colors"
         >
           <Plus size={20} />
@@ -139,6 +173,7 @@ export default function GRN() {
                 <th className="px-6 py-3 text-xs font-semibold text-slate-600 uppercase tracking-wider">Supplier</th>
                 <th className="px-6 py-3 text-xs font-semibold text-slate-600 uppercase tracking-wider">Total Amount</th>
                 <th className="px-6 py-3 text-xs font-semibold text-slate-600 uppercase tracking-wider">Status</th>
+                <th className="px-6 py-3 text-xs font-semibold text-slate-600 uppercase tracking-wider text-right">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-200">
@@ -151,11 +186,16 @@ export default function GRN() {
                   <td className="px-6 py-4 whitespace-nowrap text-sm">
                     <span className="bg-green-100 text-green-800 px-2 py-1 rounded-full text-xs font-medium">{g.status}</span>
                   </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-right flex justify-end gap-2">
+                    <button onClick={() => openEditModal(g)} className="text-slate-400 hover:text-blue-600 transition-colors">
+                      <Edit2 size={18} />
+                    </button>
+                  </td>
                 </tr>
               ))}
               {grns.length === 0 && (
                 <tr>
-                  <td colSpan={5} className="px-6 py-12 text-center text-slate-500">
+                  <td colSpan={6} className="px-6 py-12 text-center text-slate-500">
                     No GRNs found. Click "Create GRN" to register one.
                   </td>
                 </tr>
@@ -165,12 +205,12 @@ export default function GRN() {
         </div>
       </div>
 
-      {isAddModalOpen && (
+      {isModalOpen && (
         <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center z-50">
           <div className="bg-white rounded-lg shadow-xl w-full max-w-4xl max-h-[90vh] flex flex-col overflow-hidden">
-            <div className="px-6 py-4 border-b border-slate-200 flex justify-between items-center">
-              <h3 className="text-lg font-bold text-slate-800">Create Goods Received Note</h3>
-              <button onClick={() => setAddModalOpen(false)} className="text-slate-400 hover:text-slate-600">✕</button>
+            <div className="px-6 py-4 border-b border-slate-200 flex justify-between items-center bg-blue-50">
+              <h3 className="text-lg font-bold text-blue-900">{editingId ? 'Edit GRN' : 'Create Goods Received Note'}</h3>
+              <button onClick={() => setModalOpen(false)} className="text-slate-400 hover:text-slate-600">✕</button>
             </div>
             <div className="p-6 overflow-y-auto flex-1">
               <div className="grid grid-cols-2 gap-6 mb-6">
@@ -247,8 +287,10 @@ export default function GRN() {
               </div>
             </div>
             <div className="px-6 py-4 border-t border-slate-200 flex justify-end gap-3 bg-slate-50">
-              <button type="button" onClick={() => setAddModalOpen(false)} className="px-4 py-2 text-slate-700 hover:bg-slate-200 rounded-md font-medium transition-colors">Cancel</button>
-              <button onClick={handleSaveGRN} type="button" className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md font-medium transition-colors shadow-sm">Confirm & Receive Stock</button>
+              <button type="button" onClick={() => setModalOpen(false)} className="px-4 py-2 text-slate-700 hover:bg-slate-200 rounded-md font-medium transition-colors">Cancel</button>
+              <button onClick={handleSaveGRN} type="button" className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md font-medium transition-colors shadow-sm">
+                {editingId ? 'Update GRN' : 'Confirm & Receive Stock'}
+              </button>
             </div>
           </div>
         </div>

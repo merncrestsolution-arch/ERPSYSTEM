@@ -15,7 +15,9 @@ interface Customer {
 export default function Customers() {
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [search, setSearch] = useState('');
-  const [isAddModalOpen, setAddModalOpen] = useState(false);
+  
+  const [isModalOpen, setModalOpen] = useState(false);
+  const [editingId, setEditingId] = useState<number | null>(null);
 
   // Form State
   const [shopName, setShopName] = useState('');
@@ -42,10 +44,32 @@ export default function Customers() {
     }
   };
 
-  const handleAddCustomer = async (e: React.FormEvent) => {
+  const openAddModal = () => {
+    setEditingId(null);
+    setShopName('');
+    setOwnerName('');
+    setContactNumber('');
+    setAddress('');
+    setRoute('');
+    setCreditLimit('');
+    setModalOpen(true);
+  };
+
+  const openEditModal = (customer: Customer) => {
+    setEditingId(customer.id);
+    setShopName(customer.shop_name);
+    setOwnerName(customer.owner_name);
+    setContactNumber(customer.contact_number);
+    setAddress(customer.address);
+    setRoute(customer.route);
+    setCreditLimit(customer.credit_limit.toString());
+    setModalOpen(true);
+  };
+
+  const handleSaveCustomer = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      const newCustomer = {
+      const payload = {
         shop_name: shopName,
         owner_name: ownerName,
         contact_number: contactNumber,
@@ -53,23 +77,22 @@ export default function Customers() {
         route,
         credit_limit: parseFloat(creditLimit) || 0
       };
+      
       // @ts-ignore
       if (window.electronAPI) {
-        // @ts-ignore
-        await window.electronAPI.addCustomer(newCustomer);
+        if (editingId) {
+          // @ts-ignore
+          await window.electronAPI.updateCustomer(editingId, payload);
+        } else {
+          // @ts-ignore
+          await window.electronAPI.addCustomer(payload);
+        }
         await loadCustomers();
-        setAddModalOpen(false);
-        // Reset form
-        setShopName('');
-        setOwnerName('');
-        setContactNumber('');
-        setAddress('');
-        setRoute('');
-        setCreditLimit('');
+        setModalOpen(false);
       }
     } catch (e) {
       console.error(e);
-      alert('Failed to add customer');
+      alert('Failed to save customer');
     }
   };
 
@@ -81,7 +104,7 @@ export default function Customers() {
           <p className="text-slate-500">Manage shops, outstanding balances, and routes.</p>
         </div>
         <button 
-          onClick={() => setAddModalOpen(true)}
+          onClick={openAddModal}
           className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md font-medium flex items-center gap-2 shadow-sm transition-colors"
         >
           <Plus size={20} />
@@ -141,8 +164,8 @@ export default function Customers() {
                       LKR {customer.outstanding_balance.toFixed(2)}
                     </span>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-right">
-                    <button className="text-slate-400 hover:text-blue-600 transition-colors mr-3">
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-right flex justify-end gap-2">
+                    <button onClick={() => openEditModal(customer)} className="text-slate-400 hover:text-blue-600 transition-colors">
                       <Edit2 size={18} />
                     </button>
                     <button className="text-slate-400 hover:text-red-600 transition-colors">
@@ -163,15 +186,14 @@ export default function Customers() {
         </div>
       </div>
 
-      {/* Add Customer Modal */}
-      {isAddModalOpen && (
+      {isModalOpen && (
         <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center z-50">
           <div className="bg-white rounded-lg shadow-xl w-full max-w-2xl overflow-hidden">
             <div className="px-6 py-4 border-b border-slate-200 flex justify-between items-center">
-              <h3 className="text-lg font-bold text-slate-800">Register New Customer</h3>
-              <button onClick={() => setAddModalOpen(false)} className="text-slate-400 hover:text-slate-600">✕</button>
+              <h3 className="text-lg font-bold text-slate-800">{editingId ? 'Edit Customer' : 'Register New Customer'}</h3>
+              <button onClick={() => setModalOpen(false)} className="text-slate-400 hover:text-slate-600">✕</button>
             </div>
-            <form onSubmit={handleAddCustomer} className="p-6 space-y-4">
+            <form onSubmit={handleSaveCustomer} className="p-6 space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-1">Shop Name</label>
@@ -201,8 +223,10 @@ export default function Customers() {
                 <input required type="number" step="0.01" value={creditLimit} onChange={e => setCreditLimit(e.target.value)} className="w-full px-3 py-2 border border-slate-300 rounded-md" />
               </div>
               <div className="pt-4 flex justify-end gap-3">
-                <button type="button" onClick={() => setAddModalOpen(false)} className="px-4 py-2 text-slate-700 hover:bg-slate-100 rounded-md font-medium transition-colors">Cancel</button>
-                <button type="submit" className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md font-medium transition-colors">Register Customer</button>
+                <button type="button" onClick={() => setModalOpen(false)} className="px-4 py-2 text-slate-700 hover:bg-slate-100 rounded-md font-medium transition-colors">Cancel</button>
+                <button type="submit" className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md font-medium transition-colors">
+                  {editingId ? 'Save Changes' : 'Register Customer'}
+                </button>
               </div>
             </form>
           </div>

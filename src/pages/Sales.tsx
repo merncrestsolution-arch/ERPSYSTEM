@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, Search, Trash2, ShoppingCart, UserCheck, Percent } from 'lucide-react';
+import { Plus, Search, Trash2, ShoppingCart, UserCheck, Percent, Edit } from 'lucide-react';
 
 export default function Sales() {
   const navigate = useNavigate();
@@ -9,7 +9,8 @@ export default function Sales() {
   const [products, setProducts] = useState<any[]>([]);
   
   const [search, setSearch] = useState('');
-  const [isAddModalOpen, setAddModalOpen] = useState(false);
+  const [isModalOpen, setModalOpen] = useState(false);
+  const [editingSaleId, setEditingSaleId] = useState<number | null>(null);
 
   // Form State
   const [customerId, setCustomerId] = useState('');
@@ -59,10 +60,41 @@ export default function Sales() {
     setSaleItems(newItems);
   };
 
+  const openAddModal = () => {
+    setEditingSaleId(null);
+    setCustomerId('');
+    setSaleType('Cash');
+    setDiscount(0);
+    setSaleItems([]);
+    setModalOpen(true);
+  };
+
+  const openEditModal = async (sale: any) => {
+    try {
+      // @ts-ignore
+      const details = await window.electronAPI.getSaleDetails(sale.id);
+      if (details) {
+        setEditingSaleId(sale.id);
+        setCustomerId(details.customer_id.toString());
+        setSaleType(details.sale_type);
+        setDiscount(details.discount);
+        setSaleItems(details.items.map((i: any) => ({
+          product_id: i.product_id.toString(),
+          quantity: i.quantity,
+          selling_price: i.selling_price
+        })));
+        setModalOpen(true);
+      }
+    } catch (e) {
+      console.error(e);
+      alert('Failed to load sale details');
+    }
+  };
+
   const subTotal = saleItems.reduce((sum, item) => sum + (item.quantity * item.selling_price), 0);
   const netAmount = subTotal - (discount || 0);
 
-  const handleCreateSale = async (e: React.FormEvent) => {
+  const handleSaveSale = async (e: React.FormEvent) => {
     e.preventDefault();
     if (saleItems.length === 0) {
       alert("Please add at least one item to sell");
@@ -77,9 +109,12 @@ export default function Sales() {
       return;
     }
 
-    const invoiceNumber = `INV-${Date.now().toString().slice(-6)}`;
+    // Preserve original invoice number if editing
+    const invoiceNumber = editingSaleId 
+      ? sales.find(s => s.id === editingSaleId)?.invoice_number 
+      : `INV-${Date.now().toString().slice(-6)}`;
 
-    const newSale = {
+    const salePayload = {
       customer_id: parseInt(customerId),
       invoice_number: invoiceNumber,
       sale_type: saleType,
@@ -97,14 +132,15 @@ export default function Sales() {
     try {
       // @ts-ignore
       if (window.electronAPI) {
-        // @ts-ignore
-        await window.electronAPI.addSale(newSale);
+        if (editingSaleId) {
+          // @ts-ignore
+          await window.electronAPI.updateSale(editingSaleId, salePayload);
+        } else {
+          // @ts-ignore
+          await window.electronAPI.addSale(salePayload);
+        }
         await loadData();
-        setAddModalOpen(false);
-        setCustomerId('');
-        setSaleType('Cash');
-        setDiscount(0);
-        setSaleItems([]);
+        setModalOpen(false);
       }
     } catch (e) {
       console.error(e);
@@ -117,10 +153,10 @@ export default function Sales() {
       <div className="flex justify-between items-center mb-6">
         <div>
           <h2 className="text-2xl font-bold text-slate-800">Sales & Invoicing</h2>
-          <p className="text-slate-500">Create new sales, generate invoices, and manage customer credit.</p>
+          <p className="text-slate-500">Create new sales, edit invoices, and manage customer credit.</p>
         </div>
         <button 
-          onClick={() => setAddModalOpen(true)}
+          onClick={openAddModal}
           className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md font-medium flex items-center gap-2 shadow-sm transition-colors"
         >
           <Plus size={20} />
@@ -170,7 +206,10 @@ export default function Sales() {
                   <td className="px-6 py-4 whitespace-nowrap text-sm">
                     <span className="bg-blue-100 text-blue-800 px-2 py-1 rounded-full text-xs font-medium">{s.status}</span>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-right">
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-right flex justify-end items-center gap-2">
+                    <button onClick={() => openEditModal(s)} className="text-slate-600 hover:text-blue-600 transition-colors p-1" title="Edit">
+                      <Edit size={18} />
+                    </button>
                     <button onClick={() => navigate(`/invoice/${s.id}`)} className="text-blue-600 hover:text-blue-800 font-medium text-sm border border-blue-200 bg-blue-50 hover:bg-blue-100 px-3 py-1 rounded transition-colors">
                       Print
                     </button>
@@ -189,12 +228,14 @@ export default function Sales() {
         </div>
       </div>
 
-      {isAddModalOpen && (
+      {isModalOpen && (
         <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center z-50">
           <div className="bg-white rounded-lg shadow-xl w-full max-w-5xl max-h-[90vh] flex flex-col overflow-hidden">
             <div className="px-6 py-4 border-b border-slate-200 flex justify-between items-center bg-blue-50">
-              <h3 className="text-xl font-bold text-blue-900 flex items-center gap-2"><ShoppingCart /> Point of Sale Checkout</h3>
-              <button onClick={() => setAddModalOpen(false)} className="text-slate-400 hover:text-slate-600">✕</button>
+              <h3 className="text-xl font-bold text-blue-900 flex items-center gap-2">
+                <ShoppingCart /> {editingSaleId ? 'Edit Sale / Bill' : 'Point of Sale Checkout'}
+              </h3>
+              <button onClick={() => setModalOpen(false)} className="text-slate-400 hover:text-slate-600">✕</button>
             </div>
             <div className="p-6 overflow-y-auto flex-1 flex gap-6">
               {/* Left Column: Items */}
@@ -292,8 +333,8 @@ export default function Sales() {
                     <span>LKR {netAmount.toFixed(2)}</span>
                   </div>
                 </div>
-                <button onClick={handleCreateSale} type="button" className="w-full mt-6 py-3 bg-green-600 hover:bg-green-700 text-white rounded-md font-bold transition-colors shadow-sm text-lg">
-                  Complete Sale
+                <button onClick={handleSaveSale} type="button" className="w-full mt-6 py-3 bg-green-600 hover:bg-green-700 text-white rounded-md font-bold transition-colors shadow-sm text-lg">
+                  {editingSaleId ? 'Update Sale' : 'Complete Sale'}
                 </button>
               </div>
             </div>

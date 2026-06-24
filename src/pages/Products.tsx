@@ -15,7 +15,9 @@ interface Product {
 export default function Products() {
   const [products, setProducts] = useState<Product[]>([]);
   const [search, setSearch] = useState('');
-  const [isAddModalOpen, setAddModalOpen] = useState(false);
+  
+  const [isModalOpen, setModalOpen] = useState(false);
+  const [editingId, setEditingId] = useState<number | null>(null);
 
   // Form State
   const [name, setName] = useState('');
@@ -40,30 +42,49 @@ export default function Products() {
     }
   };
 
-  const handleAddProduct = async (e: React.FormEvent) => {
+  const openAddModal = () => {
+    setEditingId(null);
+    setName('');
+    setBarcode('');
+    setSellingPrice('');
+    setStock('');
+    setModalOpen(true);
+  };
+
+  const openEditModal = (product: Product) => {
+    setEditingId(product.id);
+    setName(product.name);
+    setBarcode(product.barcode || '');
+    setSellingPrice(product.selling_price.toString());
+    setStock(product.stock_quantity.toString());
+    setModalOpen(true);
+  };
+
+  const handleSaveProduct = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      const newProduct = {
+      const payload = {
         name,
         barcode,
         selling_price: parseFloat(sellingPrice),
         stock_quantity: parseInt(stock, 10)
       };
+      
       // @ts-ignore
       if (window.electronAPI) {
-        // @ts-ignore
-        await window.electronAPI.addProduct(newProduct);
+        if (editingId) {
+          // @ts-ignore
+          await window.electronAPI.updateProduct(editingId, payload);
+        } else {
+          // @ts-ignore
+          await window.electronAPI.addProduct(payload);
+        }
         await loadProducts();
-        setAddModalOpen(false);
-        // Reset form
-        setName('');
-        setBarcode('');
-        setSellingPrice('');
-        setStock('');
+        setModalOpen(false);
       }
     } catch (e) {
       console.error(e);
-      alert('Failed to add product');
+      alert('Failed to save product');
     }
   };
 
@@ -75,7 +96,7 @@ export default function Products() {
           <p className="text-slate-500">Manage your inventory, prices, and stock.</p>
         </div>
         <button 
-          onClick={() => setAddModalOpen(true)}
+          onClick={openAddModal}
           className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md font-medium flex items-center gap-2 shadow-sm transition-colors"
         >
           <Plus size={20} />
@@ -121,8 +142,8 @@ export default function Products() {
                     </span>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-600">LKR {product.selling_price.toFixed(2)}</td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-right">
-                    <button className="text-slate-400 hover:text-blue-600 transition-colors mr-3">
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-right flex justify-end gap-2">
+                    <button onClick={() => openEditModal(product)} className="text-slate-400 hover:text-blue-600 transition-colors">
                       <Edit2 size={18} />
                     </button>
                     <button className="text-slate-400 hover:text-red-600 transition-colors">
@@ -143,15 +164,14 @@ export default function Products() {
         </div>
       </div>
 
-      {/* Add Product Modal (Simple implementation) */}
-      {isAddModalOpen && (
+      {isModalOpen && (
         <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center z-50">
           <div className="bg-white rounded-lg shadow-xl w-full max-w-lg overflow-hidden">
             <div className="px-6 py-4 border-b border-slate-200 flex justify-between items-center">
-              <h3 className="text-lg font-bold text-slate-800">Add New Product</h3>
-              <button onClick={() => setAddModalOpen(false)} className="text-slate-400 hover:text-slate-600">✕</button>
+              <h3 className="text-lg font-bold text-slate-800">{editingId ? 'Edit Product' : 'Add New Product'}</h3>
+              <button onClick={() => setModalOpen(false)} className="text-slate-400 hover:text-slate-600">✕</button>
             </div>
-            <form onSubmit={handleAddProduct} className="p-6 space-y-4">
+            <form onSubmit={handleSaveProduct} className="p-6 space-y-4">
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">Product Name</label>
                 <input required type="text" value={name} onChange={e => setName(e.target.value)} className="w-full px-3 py-2 border border-slate-300 rounded-md" />
@@ -171,8 +191,10 @@ export default function Products() {
                 </div>
               </div>
               <div className="pt-4 flex justify-end gap-3">
-                <button type="button" onClick={() => setAddModalOpen(false)} className="px-4 py-2 text-slate-700 hover:bg-slate-100 rounded-md font-medium transition-colors">Cancel</button>
-                <button type="submit" className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md font-medium transition-colors">Save Product</button>
+                <button type="button" onClick={() => setModalOpen(false)} className="px-4 py-2 text-slate-700 hover:bg-slate-100 rounded-md font-medium transition-colors">Cancel</button>
+                <button type="submit" className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md font-medium transition-colors">
+                  {editingId ? 'Save Changes' : 'Save Product'}
+                </button>
               </div>
             </form>
           </div>
