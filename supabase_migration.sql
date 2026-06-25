@@ -23,7 +23,8 @@ CREATE INDEX IF NOT EXISTS location_logs_user_idx
 CREATE INDEX IF NOT EXISTS location_logs_recorded_idx
   ON public.location_logs (recorded_at DESC);
 
--- The app uses the public (anon/publishable) key, like the rest of the tables.
--- These tables are created without RLS to match the existing setup. If you later
--- enable Row Level Security project-wide, add policies allowing the anon role to
--- INSERT into location_logs and SELECT location_logs / cheques.
+-- 3) IMPORTANT: the app uses the public (anon/publishable) key like every other
+-- table in this project (all "UNRESTRICTED"). location_logs ended up with Row
+-- Level Security ENABLED, which silently blocks the app from inserting GPS
+-- points (HTTP 401). Turn RLS off so it matches the rest of the schema:
+ALTER TABLE public.location_logs DISABLE ROW LEVEL SECURITY;
