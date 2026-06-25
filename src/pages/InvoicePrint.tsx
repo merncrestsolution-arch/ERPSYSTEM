@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useReactToPrint } from 'react-to-print';
+import { Capacitor } from '@capacitor/core';
 import { Printer, ArrowLeft } from 'lucide-react';
 
 export default function InvoicePrint() {
@@ -28,11 +29,21 @@ export default function InvoicePrint() {
     }
   };
 
-  const handlePrint = useReactToPrint({
-    // @ts-ignore react-to-print types
-    content: () => billRef.current,
+  const reactPrint = useReactToPrint({
+    contentRef: billRef,
     documentTitle: sale ? `Invoice-${sale.invoice_number}` : 'Invoice',
   });
+
+  // react-to-print uses a hidden iframe which does not print in the Android
+  // WebView. On native we call the system print dialog directly; the @media
+  // print rules below hide everything except the bill.
+  const handlePrint = () => {
+    if (Capacitor.isNativePlatform()) {
+      window.print();
+    } else {
+      reactPrint();
+    }
+  };
 
   if (!sale) return <div className="p-8">Loading invoice details...</div>;
 

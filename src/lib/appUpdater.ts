@@ -4,7 +4,7 @@ const ApkUpdater = registerPlugin<any>('ApkUpdater');
 
 // The version baked into this build. Bump together with public/version.json
 // whenever a new APK is published.
-export const APP_VERSION = '1.1.0';
+export const APP_VERSION = '1.1.1';
 
 // Where the live deployment (and the published APK) lives.
 const REMOTE_BASE = 'https://electron-app-beta.vercel.app';

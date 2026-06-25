@@ -159,8 +159,8 @@ export default function LiveTracking() {
           </div>
         </div>
 
-        {/* Map */}
-        <div className="flex-1 bg-white rounded-lg border border-slate-200 shadow-sm overflow-hidden min-h-[320px]">
+        {/* Map (isolate keeps Leaflet's internal z-index below the sidebar/header) */}
+        <div className="flex-1 bg-white rounded-lg border border-slate-200 shadow-sm overflow-hidden min-h-[320px] isolate relative z-0">
           <MapContainer center={DEFAULT_CENTER} zoom={11} style={{ height: '100%', width: '100%' }} scrollWheelZoom>
             <TileLayer
               attribution='&copy; OpenStreetMap contributors'

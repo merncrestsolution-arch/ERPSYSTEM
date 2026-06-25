@@ -243,3 +243,8 @@ button, a {
     margin: 15mm;
   }
 }
+
+/* Keep the Leaflet map from rendering on top of the sidebar/header. */
+.leaflet-container {
+  z-index: 0;
+}
