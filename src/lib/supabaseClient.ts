@@ -1,8 +1,8 @@
-import { createClient } from '@supabase/supabase-js';
+import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import { hashPassword, verifyPassword, isHashed } from './crypto';
 
-const RAW_SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL as string;
-const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY as string;
+const RAW_SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL as string | undefined;
+const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined;
 
 // Normalize the URL to the project base. The Supabase client appends `/rest/v1`
 // itself, so a value that already includes a trailing `/rest/v1` (or a stray
@@ -18,14 +18,20 @@ function normalizeSupabaseUrl(url: string | undefined): string {
 
 const SUPABASE_URL = normalizeSupabaseUrl(RAW_SUPABASE_URL);
 
-if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
-  // Surface misconfiguration early instead of failing with opaque network errors.
-  console.error(
-    'Missing Supabase configuration. Define VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in your .env file.'
-  );
+/** True when Vercel/local env is missing — used to show a setup screen instead of a blank white page. */
+export const supabaseConfigError =
+  !SUPABASE_URL || !SUPABASE_ANON_KEY
+    ? 'Missing Supabase configuration. Set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in the Vercel project Environment Variables, then redeploy.'
+    : null;
+
+if (supabaseConfigError) {
+  console.error(supabaseConfigError);
 }
 
-export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+// Avoid crashing the whole SPA when env vars are missing (createClient throws on empty URL).
+export const supabase: SupabaseClient = supabaseConfigError
+  ? (null as unknown as SupabaseClient)
+  : createClient(SUPABASE_URL, SUPABASE_ANON_KEY as string);
 
 export const supabaseAPI = {
   getProducts: async () => {

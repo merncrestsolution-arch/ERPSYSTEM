@@ -1,4 +1,7 @@
 {
+  "rewrites": [
+    { "source": "/((?!erp-app\\.apk$).*)", "destination": "/index.html" }
+  ],
   "headers": [
     {
       "source": "/version.json",
