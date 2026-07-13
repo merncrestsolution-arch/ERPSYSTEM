@@ -18,6 +18,13 @@ import CloudSync from './pages/CloudSync';
 import Settings from './pages/Settings';
 import ApprovalCenter from './pages/ApprovalCenter';
 import LiveTracking from './pages/LiveTracking';
+import RoutesPage from './pages/Routes';
+import VisitCheckIn from './pages/VisitCheckIn';
+import InventoryAdvanced from './pages/InventoryAdvanced';
+import SalesFinance from './pages/SalesFinance';
+import OfflineSync from './pages/OfflineSync';
+import FleetOps from './pages/FleetOps';
+import AdminHub from './pages/AdminHub';
 import ProtectedRoute from './components/ProtectedRoute';
 import { AuthProvider } from './context/AuthContext';
 import './index.css';
@@ -31,7 +38,6 @@ function App() {
           <Route path="/" element={<Navigate to="/login" replace />} />
           <Route path="/login" element={<Login />} />
 
-          {/* Authenticated area */}
           <Route element={<ProtectedRoute />}>
             <Route path="/dashboard" element={<Dashboard />}>
               <Route index element={<DashboardHome />} />
@@ -41,28 +47,38 @@ function App() {
                 <Route path="inventory" element={<Inventory />} />
                 <Route path="grn" element={<GRN />} />
                 <Route path="grtn" element={<GRTN />} />
+                <Route path="inventory-advanced" element={<InventoryAdvanced />} />
               </Route>
 
               <Route element={<ProtectedRoute allowedRoles={['Sales Officer']} />}>
                 <Route path="customers" element={<Customers />} />
                 <Route path="sales" element={<Sales />} />
+                <Route path="routes" element={<RoutesPage />} />
+                <Route path="visits" element={<VisitCheckIn />} />
+                <Route path="sales-finance" element={<SalesFinance />} />
               </Route>
 
               <Route element={<ProtectedRoute allowedRoles={['Director', 'Accountant']} />}>
                 <Route path="suppliers" element={<Suppliers />} />
                 <Route path="supplier-payments" element={<SupplierPayments />} />
                 <Route path="cheques" element={<Cheques />} />
+                <Route path="sales-finance-acct" element={<SalesFinance />} />
               </Route>
 
               <Route element={<ProtectedRoute allowedRoles={['Director']} />}>
                 <Route path="reports" element={<Reports />} />
                 <Route path="tracking" element={<LiveTracking />} />
+                <Route path="admin-hub" element={<AdminHub />} />
+                <Route path="fleet" element={<FleetOps />} />
               </Route>
 
               <Route element={<ProtectedRoute allowedRoles={['Admin']} />}>
                 <Route path="vehicles" element={<Vehicles />} />
                 <Route path="cloud-sync" element={<CloudSync />} />
+                <Route path="offline-sync" element={<OfflineSync />} />
                 <Route path="settings" element={<Settings />} />
+                <Route path="fleet-admin" element={<FleetOps />} />
+                <Route path="admin-hub-admin" element={<AdminHub />} />
               </Route>
 
               <Route element={<ProtectedRoute allowedRoles={['Admin', 'Director', 'Accountant', 'Store Manager']} />}>

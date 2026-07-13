@@ -14,6 +14,8 @@ export default function GRN() {
   const [supplierId, setSupplierId] = useState('');
   const [invoiceNo, setInvoiceNo] = useState('');
   const [grnItems, setGrnItems] = useState<{product_id: string, quantity: number, cost_price: number}[]>([]);
+  const [purchaseOrders, setPurchaseOrders] = useState<any[]>([]);
+  const [poId, setPoId] = useState('');
 
   useEffect(() => {
     loadData();
@@ -35,7 +37,30 @@ export default function GRN() {
         setGrns(grnData);
         setSuppliers(supData);
         setProducts(prodData);
+        // @ts-ignore
+        if (window.electronAPI.getPurchaseOrders) {
+          // @ts-ignore
+          setPurchaseOrders(await window.electronAPI.getPurchaseOrders());
+        }
       }
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const loadFromPo = async (id: string) => {
+    setPoId(id);
+    if (!id) return;
+    try {
+      // @ts-ignore
+      const details = await window.electronAPI.getPurchaseOrderDetails(Number(id));
+      if (!details) return;
+      setSupplierId(String(details.supplier_id));
+      setGrnItems((details.items || []).map((i: any) => ({
+        product_id: String(i.product_id),
+        quantity: i.quantity,
+        cost_price: i.cost_price
+      })));
     } catch (e) {
       console.error(e);
     }
@@ -62,6 +87,7 @@ export default function GRN() {
     setSupplierId('');
     setInvoiceNo('');
     setGrnItems([]);
+    setPoId('');
     setModalOpen(true);
   };
 
@@ -107,6 +133,7 @@ export default function GRN() {
       grn_number: grnNumber,
       supplier_invoice_no: invoiceNo,
       total_amount: totalAmount,
+      po_id: poId ? parseInt(poId) : null,
       items: grnItems.map(item => ({
         product_id: parseInt(item.product_id),
         quantity: item.quantity,
@@ -215,6 +242,20 @@ export default function GRN() {
             <div className="p-4 sm:p-6 overflow-y-auto flex-1">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 mb-6">
                 <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">From Purchase Order (optional)</label>
+                  <select
+                    value={poId}
+                    onChange={(e) => loadFromPo(e.target.value)}
+                    className="w-full px-3 py-2 border border-slate-300 rounded-md bg-white"
+                    disabled={!!editingId}
+                  >
+                    <option value="">Manual GRN (no PO)</option>
+                    {purchaseOrders.filter((p) => p.status !== 'Received').map((p) => (
+                      <option key={p.id} value={p.id}>{p.po_number} — {p.supplier_name}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
                   <label className="block text-sm font-medium text-slate-700 mb-1">Supplier</label>
                   <select 
                     value={supplierId} 
@@ -226,7 +267,7 @@ export default function GRN() {
                     {suppliers.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
                   </select>
                 </div>
-                <div>
+                <div className="sm:col-span-2">
                   <label className="block text-sm font-medium text-slate-700 mb-1">Supplier Invoice No.</label>
                   <input type="text" value={invoiceNo} onChange={e => setInvoiceNo(e.target.value)} className="w-full px-3 py-2 border border-slate-300 rounded-md" />
                 </div>

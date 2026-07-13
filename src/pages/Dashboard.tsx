@@ -17,12 +17,19 @@ import {
   X,
   Download,
   HardDriveDownload,
-  Navigation
+  Navigation,
+  Route as RouteIcon,
+  QrCode,
+  Boxes,
+  Wallet,
+  Wifi,
+  Sparkles
 } from 'lucide-react';
 
 import { useAuth } from '../context/AuthContext';
 import MadeByMernCrest from '../components/MadeByMernCrest';
 import UpdateBanner from '../components/UpdateBanner';
+import { COMPANY } from '../lib/companyProfile';
 
 export default function Dashboard() {
   const navigate = useNavigate();
@@ -104,7 +111,7 @@ export default function Dashboard() {
       {/* Sidebar Navigation */}
       <aside className={`fixed md:static inset-y-0 left-0 z-50 w-[280px] max-w-[85vw] md:w-64 bg-slate-900 text-slate-300 flex flex-col transition-transform duration-300 ease-in-out ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}`}>
         <div className="h-16 flex items-center justify-between px-6 border-b border-slate-800">
-          <h1 className="text-xl font-bold text-white tracking-wider">ERP SYSTEM</h1>
+          <h1 className="text-base font-bold text-white tracking-wide leading-tight">{COMPANY.shortName}</h1>
           <button className="md:hidden text-slate-400 hover:text-white" onClick={() => setSidebarOpen(false)}>
             <X size={24} />
           </button>
@@ -117,6 +124,7 @@ export default function Dashboard() {
             <>
               <NavItem icon={<Package size={20} />} label="Products" path="/dashboard/products" currentPath={location.pathname} navigate={navigate} onClick={() => setSidebarOpen(false)} />
               <NavItem icon={<LayoutDashboard size={20} />} label="Inventory" path="/dashboard/inventory" currentPath={location.pathname} navigate={navigate} onClick={() => setSidebarOpen(false)} />
+              <NavItem icon={<Boxes size={20} />} label="Purchasing +" path="/dashboard/inventory-advanced" currentPath={location.pathname} navigate={navigate} onClick={() => setSidebarOpen(false)} />
               <NavItem icon={<Package size={20} />} label="Receive GRN" path="/dashboard/grn" currentPath={location.pathname} navigate={navigate} onClick={() => setSidebarOpen(false)} />
               <NavItem icon={<PackageMinus size={20} />} label="Return GRTN" path="/dashboard/grtn" currentPath={location.pathname} navigate={navigate} onClick={() => setSidebarOpen(false)} />
             </>
@@ -126,6 +134,9 @@ export default function Dashboard() {
             <>
               <NavItem icon={<Users size={20} />} label="Customers" path="/dashboard/customers" currentPath={location.pathname} navigate={navigate} onClick={() => setSidebarOpen(false)} />
               <NavItem icon={<ShoppingCart size={20} />} label="Sales" path="/dashboard/sales" currentPath={location.pathname} navigate={navigate} onClick={() => setSidebarOpen(false)} />
+              <NavItem icon={<RouteIcon size={20} />} label="Routes" path="/dashboard/routes" currentPath={location.pathname} navigate={navigate} onClick={() => setSidebarOpen(false)} />
+              <NavItem icon={<QrCode size={20} />} label="Visit Check-In" path="/dashboard/visits" currentPath={location.pathname} navigate={navigate} onClick={() => setSidebarOpen(false)} />
+              <NavItem icon={<Wallet size={20} />} label="Sales & Finance" path="/dashboard/sales-finance" currentPath={location.pathname} navigate={navigate} onClick={() => setSidebarOpen(false)} />
             </>
           )}
 
@@ -134,6 +145,7 @@ export default function Dashboard() {
               <NavItem icon={<Users size={20} />} label="Suppliers" path="/dashboard/suppliers" currentPath={location.pathname} navigate={navigate} onClick={() => setSidebarOpen(false)} />
               <NavItem icon={<Banknote size={20} />} label="Sup. Payments" path="/dashboard/supplier-payments" currentPath={location.pathname} navigate={navigate} onClick={() => setSidebarOpen(false)} />
               <NavItem icon={<Banknote size={20} />} label="Cheques" path="/dashboard/cheques" currentPath={location.pathname} navigate={navigate} onClick={() => setSidebarOpen(false)} />
+              <NavItem icon={<Wallet size={20} />} label="Finance Hub" path="/dashboard/sales-finance-acct" currentPath={location.pathname} navigate={navigate} onClick={() => setSidebarOpen(false)} />
             </>
           )}
 
@@ -141,13 +153,18 @@ export default function Dashboard() {
             <>
               <NavItem icon={<FileText size={20} />} label="Reports" path="/dashboard/reports" currentPath={location.pathname} navigate={navigate} onClick={() => setSidebarOpen(false)} />
               <NavItem icon={<Navigation size={20} />} label="Live Tracking" path="/dashboard/tracking" currentPath={location.pathname} navigate={navigate} onClick={() => setSidebarOpen(false)} />
+              <NavItem icon={<Truck size={20} />} label="Fleet Ops" path="/dashboard/fleet" currentPath={location.pathname} navigate={navigate} onClick={() => setSidebarOpen(false)} />
+              <NavItem icon={<Sparkles size={20} />} label="Admin Hub" path="/dashboard/admin-hub" currentPath={location.pathname} navigate={navigate} onClick={() => setSidebarOpen(false)} />
             </>
           )}
 
           {hasRole(['Admin']) && (
             <>
               <NavItem icon={<Truck size={20} />} label="Vehicles" path="/dashboard/vehicles" currentPath={location.pathname} navigate={navigate} onClick={() => setSidebarOpen(false)} />
+              <NavItem icon={<Truck size={20} />} label="Fleet Ops" path="/dashboard/fleet-admin" currentPath={location.pathname} navigate={navigate} onClick={() => setSidebarOpen(false)} />
               <NavItem icon={<Cloud size={20} />} label="Cloud Sync" path="/dashboard/cloud-sync" currentPath={location.pathname} navigate={navigate} onClick={() => setSidebarOpen(false)} />
+              <NavItem icon={<Wifi size={20} />} label="Offline Sync" path="/dashboard/offline-sync" currentPath={location.pathname} navigate={navigate} onClick={() => setSidebarOpen(false)} />
+              <NavItem icon={<Sparkles size={20} />} label="Admin Hub" path="/dashboard/admin-hub-admin" currentPath={location.pathname} navigate={navigate} onClick={() => setSidebarOpen(false)} />
             </>
           )}
 
@@ -182,7 +199,7 @@ export default function Dashboard() {
             <button className="md:hidden text-slate-600 hover:text-slate-900" onClick={toggleSidebar} aria-label="Toggle navigation">
               <Menu size={24} />
             </button>
-            <h2 className="text-lg md:text-xl font-semibold text-slate-800 truncate">ERP SYSTEM</h2>
+            <h2 className="text-lg md:text-xl font-semibold text-slate-800 truncate">{COMPANY.displayName}</h2>
           </div>
           <div className="flex items-center space-x-3 md:space-x-6">
             {installAvailable && (

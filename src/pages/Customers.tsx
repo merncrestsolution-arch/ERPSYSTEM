@@ -1,5 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Search, Edit2, Trash2, MapPin, Phone } from 'lucide-react';
+import { Plus, Search, Edit2, Trash2, MapPin, Phone, QrCode } from 'lucide-react';
+import QrImage from '../components/QrImage';
+import PdfActions from '../components/PdfActions';
+import { COMPANY } from '../lib/companyProfile';
 
 interface Customer {
   id: number;
@@ -10,6 +13,7 @@ interface Customer {
   route: string;
   credit_limit: number;
   outstanding_balance: number;
+  qr_code?: string;
 }
 
 export default function Customers() {
@@ -26,6 +30,7 @@ export default function Customers() {
   const [address, setAddress] = useState('');
   const [route, setRoute] = useState('');
   const [creditLimit, setCreditLimit] = useState('');
+  const [qrPreview, setQrPreview] = useState<Customer | null>(null);
 
   useEffect(() => {
     loadCustomers();
@@ -41,6 +46,27 @@ export default function Customers() {
       }
     } catch (e) {
       console.error(e);
+    }
+  };
+
+  const handleGenerateQr = async (customer: Customer) => {
+    try {
+      // @ts-ignore
+      const api = window.electronAPI;
+      if (!api?.ensureCustomerQr) {
+        alert('QR generation is not available');
+        return;
+      }
+      const code = await api.ensureCustomerQr(customer.id);
+      if (!code) {
+        alert('Failed to generate QR code');
+        return;
+      }
+      await loadCustomers();
+      setQrPreview({ ...customer, qr_code: code });
+    } catch (e: any) {
+      console.error(e);
+      alert(e?.message || 'Failed to generate QR. Run supabase_schema_phases.sql if the qr_code column is missing.');
     }
   };
 
@@ -93,6 +119,21 @@ export default function Customers() {
     } catch (e) {
       console.error(e);
       alert('Failed to save customer');
+    }
+  };
+
+  const handleDeleteCustomer = async (id: number) => {
+    if (!confirm('Delete this customer?')) return;
+    try {
+      // @ts-ignore
+      if (window.electronAPI?.deleteCustomer) {
+        // @ts-ignore
+        await window.electronAPI.deleteCustomer(id);
+        await loadCustomers();
+      }
+    } catch (e) {
+      console.error(e);
+      alert('Failed to delete customer');
     }
   };
 
@@ -165,10 +206,18 @@ export default function Customers() {
                     </span>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-right flex justify-end gap-2">
+                    <button
+                      type="button"
+                      title="Generate / show QR"
+                      onClick={() => handleGenerateQr(customer)}
+                      className="text-slate-400 hover:text-emerald-600 transition-colors"
+                    >
+                      <QrCode size={18} />
+                    </button>
                     <button onClick={() => openEditModal(customer)} className="text-slate-400 hover:text-blue-600 transition-colors">
                       <Edit2 size={18} />
                     </button>
-                    <button className="text-slate-400 hover:text-red-600 transition-colors">
+                    <button onClick={() => handleDeleteCustomer(customer.id)} className="text-slate-400 hover:text-red-600 transition-colors">
                       <Trash2 size={18} />
                     </button>
                   </td>
@@ -229,6 +278,28 @@ export default function Customers() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {qrPreview?.qr_code && (
+        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={() => setQrPreview(null)}>
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-sm p-6 text-center space-y-3" onClick={(e) => e.stopPropagation()}>
+            <div id="customer-qr-sticker" className="bg-white p-4">
+              <div className="text-xs text-slate-500 mb-1">{COMPANY.displayName}</div>
+              <h3 className="text-lg font-bold text-slate-800 mb-2">{qrPreview.shop_name}</h3>
+              <QrImage value={qrPreview.qr_code} size={220} />
+              <p className="font-mono text-xs text-slate-600 mt-3 break-all">{qrPreview.qr_code}</p>
+              <p className="text-xs text-slate-500 mt-1">Scan to verify customer visit</p>
+            </div>
+            <PdfActions
+              targetId="customer-qr-sticker"
+              filename={`QR-${qrPreview.shop_name.replace(/\s+/g, '-')}.pdf`}
+              printTitle={`QR - ${qrPreview.shop_name}`}
+              size="sm"
+              className="justify-center"
+            />
+            <button type="button" onClick={() => setQrPreview(null)} className="px-4 py-2 text-slate-600 text-sm">Close</button>
           </div>
         </div>
       )}

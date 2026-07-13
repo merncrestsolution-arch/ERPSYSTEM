@@ -48,6 +48,9 @@ export default function LiveTracking() {
   const [selectedUser, setSelectedUser] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [playFrom, setPlayFrom] = useState(new Date(Date.now() - 86400000).toISOString().slice(0, 16));
+  const [playTo, setPlayTo] = useState(new Date().toISOString().slice(0, 16));
+  const [stats, setStats] = useState<{ distanceKm: number; points: number; avgSpeedKmh: number; workingHours: number } | null>(null);
   const refreshRef = useRef<any>(null);
 
   const loadLocations = async () => {
@@ -77,6 +80,47 @@ export default function LiveTracking() {
       if (!api?.getLocationTrail) return;
       const data = await api.getLocationTrail(userId, 200);
       setTrail(Array.isArray(data) ? data : []);
+      setStats(null);
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const loadPlayback = async () => {
+    if (!selectedUser) return;
+    try {
+      // @ts-ignore
+      const api = window.electronAPI;
+      if (!api?.getLocationPlayback) return;
+      const fromIso = new Date(playFrom).toISOString();
+      const toIso = new Date(playTo).toISOString();
+      const data = await api.getLocationPlayback(selectedUser, fromIso, toIso);
+      const pts = Array.isArray(data) ? data : [];
+      setTrail(pts);
+      let dist = 0;
+      let movingSeconds = 0;
+      for (let i = 1; i < pts.length; i++) {
+        const a = pts[i - 1]; const b = pts[i];
+        if (!a.latitude || !b.latitude) continue;
+        const R = 6371;
+        const dLat = (b.latitude - a.latitude) * Math.PI / 180;
+        const dLon = (b.longitude - a.longitude) * Math.PI / 180;
+        const x = Math.sin(dLat / 2) ** 2 + Math.cos(a.latitude * Math.PI / 180) * Math.cos(b.latitude * Math.PI / 180) * Math.sin(dLon / 2) ** 2;
+        dist += 2 * R * Math.asin(Math.sqrt(x));
+        const t0 = new Date(a.recorded_at).getTime();
+        const t1 = new Date(b.recorded_at).getTime();
+        if (t1 > t0) movingSeconds += (t1 - t0) / 1000;
+      }
+      const workingHours = pts.length >= 2
+        ? Math.max(0, (new Date(pts[pts.length - 1].recorded_at).getTime() - new Date(pts[0].recorded_at).getTime()) / 3600000)
+        : 0;
+      const avgSpeedKmh = movingSeconds > 0 ? dist / (movingSeconds / 3600) : 0;
+      setStats({
+        distanceKm: Math.round(dist * 100) / 100,
+        points: pts.length,
+        avgSpeedKmh: Math.round(avgSpeedKmh * 10) / 10,
+        workingHours: Math.round(workingHours * 100) / 100,
+      });
     } catch (e) {
       console.error(e);
     }
@@ -114,15 +158,33 @@ export default function LiveTracking() {
       <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 mb-6">
         <div>
           <h2 className="text-2xl font-bold text-slate-800 flex items-center gap-2"><Navigation size={24} className="text-blue-600" /> Live Tracking</h2>
-          <p className="text-slate-500">Real-time and recent locations of sales officers.</p>
+          <p className="text-slate-500">Live map, route playback, distance, and working trail.</p>
         </div>
-        <button
-          onClick={() => { loadLocations(); if (selectedUser) loadTrail(selectedUser); }}
-          className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md font-medium flex items-center justify-center gap-2 shadow-sm transition-colors w-full sm:w-auto"
-        >
-          <RefreshCw size={18} /> Refresh
-        </button>
+        <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+          {selectedUser && (
+            <>
+              <input type="datetime-local" value={playFrom} onChange={(e) => setPlayFrom(e.target.value)} className="border rounded-md px-2 py-2 text-sm" />
+              <input type="datetime-local" value={playTo} onChange={(e) => setPlayTo(e.target.value)} className="border rounded-md px-2 py-2 text-sm" />
+              <button onClick={loadPlayback} className="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-md text-sm font-medium">Playback</button>
+            </>
+          )}
+          <button
+            onClick={() => { loadLocations(); if (selectedUser) loadTrail(selectedUser); }}
+            className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md font-medium flex items-center justify-center gap-2 shadow-sm transition-colors"
+          >
+            <RefreshCw size={18} /> Refresh
+          </button>
+        </div>
       </div>
+
+      {stats && (
+        <div className="mb-4 text-sm bg-slate-100 text-slate-700 px-4 py-2 rounded-md flex flex-wrap gap-4">
+          <span>Playback: {stats.points} points</span>
+          <span>~{stats.distanceKm} km</span>
+          <span>Avg speed ~{stats.avgSpeedKmh} km/h</span>
+          <span>Working window ~{stats.workingHours} h</span>
+        </div>
+      )}
 
       {error && (
         <div className="mb-4 p-3 bg-amber-50 border border-amber-200 text-amber-800 text-sm rounded">{error}</div>

@@ -1,6 +1,14 @@
 -- Run this in the Supabase SQL Editor (Dashboard -> SQL -> New query -> Run).
 -- It is safe to run more than once.
 
+-- 0) Customer QR codes for visit verification stickers
+ALTER TABLE public.customers
+  ADD COLUMN IF NOT EXISTS qr_code text;
+
+CREATE UNIQUE INDEX IF NOT EXISTS customers_qr_code_uidx
+  ON public.customers (qr_code)
+  WHERE qr_code IS NOT NULL;
+
 -- 1) Cheques: optional "received from / who gave" name.
 ALTER TABLE public.cheques
   ADD COLUMN IF NOT EXISTS received_from text;

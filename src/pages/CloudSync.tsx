@@ -47,8 +47,6 @@ export default function CloudSync() {
   };
 
   const handleSync = async () => {
-    if (!isConfigured) return alert("Please configure the Cloud Database URL first.");
-    
     setIsSyncing(true);
     
     try {
@@ -58,7 +56,7 @@ export default function CloudSync() {
         const result = await window.electronAPI.syncToCloud();
         if (result.success) {
           setLastSync(result.timestamp);
-          alert('Synchronization completed successfully!');
+          alert(`Synchronization completed${result.synced != null ? ` (${result.synced} queued items)` : ''}!`);
         } else {
           alert('Sync Failed: ' + result.error);
         }

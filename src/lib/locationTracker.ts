@@ -48,7 +48,7 @@ export async function startTracking(user: TrackedUser) {
       watcherId = await BackgroundGeolocation.addWatcher(
         {
           backgroundMessage: 'Location is being shared with your manager.',
-          backgroundTitle: 'ERP System - Tracking active',
+          backgroundTitle: 'Seirra Cables ERP - Tracking active',
           requestPermissions: true,
           stale: false,
           distanceFilter: 25,

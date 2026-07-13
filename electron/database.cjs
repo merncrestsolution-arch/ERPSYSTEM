@@ -196,6 +196,309 @@ function initDatabase() {
         postgres_url TEXT,
         last_sync DATETIME
       );
+
+      CREATE TABLE IF NOT EXISTS location_logs (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id INTEGER,
+        username TEXT,
+        full_name TEXT,
+        latitude REAL NOT NULL,
+        longitude REAL NOT NULL,
+        accuracy REAL,
+        recorded_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      );
+
+      CREATE TABLE IF NOT EXISTS routes (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT NOT NULL,
+        description TEXT,
+        assigned_user_id INTEGER,
+        status TEXT DEFAULT 'Active',
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      );
+
+      CREATE TABLE IF NOT EXISTS route_stops (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        route_id INTEGER NOT NULL,
+        customer_id INTEGER NOT NULL,
+        sequence_no INTEGER DEFAULT 0,
+        FOREIGN KEY(route_id) REFERENCES routes(id),
+        FOREIGN KEY(customer_id) REFERENCES customers(id)
+      );
+
+      CREATE TABLE IF NOT EXISTS daily_schedules (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        route_id INTEGER NOT NULL,
+        schedule_date DATE NOT NULL,
+        assigned_user_id INTEGER,
+        status TEXT DEFAULT 'Planned',
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY(route_id) REFERENCES routes(id)
+      );
+
+      CREATE TABLE IF NOT EXISTS customer_visits (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        customer_id INTEGER NOT NULL,
+        user_id INTEGER,
+        schedule_id INTEGER,
+        method TEXT DEFAULT 'manual',
+        reason TEXT,
+        latitude REAL,
+        longitude REAL,
+        photo_url TEXT,
+        visited_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY(customer_id) REFERENCES customers(id)
+      );
+
+      CREATE TABLE IF NOT EXISTS warehouses (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT UNIQUE NOT NULL,
+        location TEXT,
+        is_default INTEGER DEFAULT 0
+      );
+
+      CREATE TABLE IF NOT EXISTS warehouse_stock (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        warehouse_id INTEGER NOT NULL,
+        product_id INTEGER NOT NULL,
+        quantity INTEGER DEFAULT 0,
+        UNIQUE(warehouse_id, product_id),
+        FOREIGN KEY(warehouse_id) REFERENCES warehouses(id),
+        FOREIGN KEY(product_id) REFERENCES products(id)
+      );
+
+      CREATE TABLE IF NOT EXISTS stock_transfers (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        from_warehouse_id INTEGER NOT NULL,
+        to_warehouse_id INTEGER NOT NULL,
+        product_id INTEGER NOT NULL,
+        quantity INTEGER NOT NULL,
+        notes TEXT,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      );
+
+      CREATE TABLE IF NOT EXISTS purchase_orders (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        supplier_id INTEGER NOT NULL,
+        po_number TEXT UNIQUE NOT NULL,
+        total_amount REAL DEFAULT 0,
+        status TEXT DEFAULT 'Draft',
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY(supplier_id) REFERENCES suppliers(id)
+      );
+
+      CREATE TABLE IF NOT EXISTS purchase_order_items (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        po_id INTEGER NOT NULL,
+        product_id INTEGER NOT NULL,
+        quantity INTEGER NOT NULL,
+        cost_price REAL NOT NULL,
+        total_price REAL NOT NULL,
+        FOREIGN KEY(po_id) REFERENCES purchase_orders(id)
+      );
+
+      CREATE TABLE IF NOT EXISTS purchase_returns (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        supplier_id INTEGER NOT NULL,
+        return_number TEXT UNIQUE NOT NULL,
+        total_amount REAL DEFAULT 0,
+        reason TEXT,
+        status TEXT DEFAULT 'Completed',
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY(supplier_id) REFERENCES suppliers(id)
+      );
+
+      CREATE TABLE IF NOT EXISTS purchase_return_items (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        return_id INTEGER NOT NULL,
+        product_id INTEGER NOT NULL,
+        quantity INTEGER NOT NULL,
+        cost_price REAL NOT NULL,
+        total_price REAL NOT NULL,
+        FOREIGN KEY(return_id) REFERENCES purchase_returns(id)
+      );
+
+      CREATE TABLE IF NOT EXISTS quotations (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        customer_id INTEGER NOT NULL,
+        quote_number TEXT UNIQUE NOT NULL,
+        total_amount REAL DEFAULT 0,
+        discount REAL DEFAULT 0,
+        net_amount REAL DEFAULT 0,
+        status TEXT DEFAULT 'Draft',
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY(customer_id) REFERENCES customers(id)
+      );
+
+      CREATE TABLE IF NOT EXISTS quotation_items (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        quotation_id INTEGER NOT NULL,
+        product_id INTEGER NOT NULL,
+        quantity INTEGER NOT NULL,
+        selling_price REAL NOT NULL,
+        total_price REAL NOT NULL,
+        FOREIGN KEY(quotation_id) REFERENCES quotations(id)
+      );
+
+      CREATE TABLE IF NOT EXISTS sales_orders (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        customer_id INTEGER NOT NULL,
+        quotation_id INTEGER,
+        so_number TEXT UNIQUE NOT NULL,
+        total_amount REAL DEFAULT 0,
+        discount REAL DEFAULT 0,
+        net_amount REAL DEFAULT 0,
+        status TEXT DEFAULT 'Open',
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY(customer_id) REFERENCES customers(id)
+      );
+
+      CREATE TABLE IF NOT EXISTS sales_order_items (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        so_id INTEGER NOT NULL,
+        product_id INTEGER NOT NULL,
+        quantity INTEGER NOT NULL,
+        selling_price REAL NOT NULL,
+        total_price REAL NOT NULL,
+        FOREIGN KEY(so_id) REFERENCES sales_orders(id)
+      );
+
+      CREATE TABLE IF NOT EXISTS delivery_notes (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        sale_id INTEGER,
+        so_id INTEGER,
+        dn_number TEXT UNIQUE NOT NULL,
+        customer_id INTEGER NOT NULL,
+        status TEXT DEFAULT 'Dispatched',
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      );
+
+      CREATE TABLE IF NOT EXISTS customer_payments (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        customer_id INTEGER NOT NULL,
+        payment_method TEXT NOT NULL,
+        reference_number TEXT,
+        amount REAL NOT NULL,
+        date DATE NOT NULL,
+        notes TEXT,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY(customer_id) REFERENCES customers(id)
+      );
+
+      CREATE TABLE IF NOT EXISTS cash_book (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        entry_type TEXT NOT NULL,
+        category TEXT,
+        description TEXT,
+        amount REAL NOT NULL,
+        entry_date DATE NOT NULL,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      );
+
+      CREATE TABLE IF NOT EXISTS bank_transactions (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        bank_name TEXT,
+        transaction_type TEXT NOT NULL,
+        reference_number TEXT,
+        amount REAL NOT NULL,
+        transaction_date DATE NOT NULL,
+        notes TEXT,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      );
+
+      CREATE TABLE IF NOT EXISTS income_expenses (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        type TEXT NOT NULL,
+        category TEXT,
+        description TEXT,
+        amount REAL NOT NULL,
+        entry_date DATE NOT NULL,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      );
+
+      CREATE TABLE IF NOT EXISTS promotions (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT NOT NULL,
+        discount_percent REAL DEFAULT 0,
+        start_date DATE,
+        end_date DATE,
+        active INTEGER DEFAULT 1
+      );
+
+      CREATE TABLE IF NOT EXISTS sync_outbox (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        entity_type TEXT NOT NULL,
+        entity_id TEXT,
+        payload TEXT NOT NULL,
+        client_uuid TEXT UNIQUE,
+        status TEXT DEFAULT 'pending',
+        error TEXT,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        synced_at DATETIME
+      );
+
+      CREATE TABLE IF NOT EXISTS geofences (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT NOT NULL,
+        latitude REAL NOT NULL,
+        longitude REAL NOT NULL,
+        radius_meters REAL DEFAULT 100,
+        customer_id INTEGER
+      );
+
+      CREATE TABLE IF NOT EXISTS vehicle_expenses (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        vehicle_id INTEGER NOT NULL,
+        expense_type TEXT NOT NULL,
+        amount REAL NOT NULL,
+        expense_date DATE NOT NULL,
+        notes TEXT,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY(vehicle_id) REFERENCES vehicles(id)
+      );
+
+      CREATE TABLE IF NOT EXISTS vehicle_fuel (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        vehicle_id INTEGER NOT NULL,
+        liters REAL NOT NULL,
+        amount REAL NOT NULL,
+        odometer REAL,
+        fuel_date DATE NOT NULL,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY(vehicle_id) REFERENCES vehicles(id)
+      );
+
+      CREATE TABLE IF NOT EXISTS vehicle_maintenance (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        vehicle_id INTEGER NOT NULL,
+        description TEXT NOT NULL,
+        amount REAL DEFAULT 0,
+        service_date DATE NOT NULL,
+        next_service_date DATE,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY(vehicle_id) REFERENCES vehicles(id)
+      );
+
+      CREATE TABLE IF NOT EXISTS audit_logs (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id INTEGER,
+        username TEXT,
+        action TEXT NOT NULL,
+        entity_type TEXT,
+        entity_id TEXT,
+        details TEXT,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      );
+
+      CREATE TABLE IF NOT EXISTS notifications (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id INTEGER,
+        title TEXT NOT NULL,
+        body TEXT,
+        channel TEXT DEFAULT 'in_app',
+        read INTEGER DEFAULT 0,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      );
     `);
 
     // --- Lightweight migrations for databases created by older versions ---
@@ -209,6 +512,36 @@ function initDatabase() {
     // customer_id. Add customer_id if it is missing so existing data keeps working.
     if (!columnExists('grtns', 'customer_id')) {
       try { db.exec('ALTER TABLE grtns ADD COLUMN customer_id INTEGER'); } catch (e) {}
+    }
+
+    if (!columnExists('cheques', 'received_from')) {
+      try { db.exec('ALTER TABLE cheques ADD COLUMN received_from TEXT'); } catch (e) {}
+    }
+
+    if (!columnExists('customers', 'qr_code')) {
+      try { db.exec('ALTER TABLE customers ADD COLUMN qr_code TEXT'); } catch (e) {}
+    }
+
+    if (!columnExists('products', 'low_stock_threshold')) {
+      try { db.exec('ALTER TABLE products ADD COLUMN low_stock_threshold INTEGER DEFAULT 10'); } catch (e) {}
+    }
+
+    if (!columnExists('products', 'batch_number')) {
+      try { db.exec('ALTER TABLE products ADD COLUMN batch_number TEXT'); } catch (e) {}
+    }
+
+    if (!columnExists('grns', 'po_id')) {
+      try { db.exec('ALTER TABLE grns ADD COLUMN po_id INTEGER'); } catch (e) {}
+    }
+
+    if (!columnExists('vehicles', 'assigned_user_id')) {
+      try { db.exec('ALTER TABLE vehicles ADD COLUMN assigned_user_id INTEGER'); } catch (e) {}
+    }
+
+    // Ensure a default warehouse exists
+    const whCount = db.prepare('SELECT COUNT(*) AS count FROM warehouses').get();
+    if (!whCount || whCount.count === 0) {
+      db.prepare('INSERT INTO warehouses (name, location, is_default) VALUES (?, ?, ?)').run('Main Warehouse', 'Head Office', 1);
     }
 
     // Seed a default admin (hashed) only if there are no users yet.

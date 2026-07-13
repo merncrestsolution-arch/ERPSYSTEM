@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Settings as SettingsIcon, User, Lock, Bell, Shield, Database, Trash2, Plus } from 'lucide-react';
+import { COMPANY } from '../lib/companyProfile';
 
 export default function Settings() {
   const [users, setUsers] = useState<any[]>([]);
@@ -131,7 +132,27 @@ export default function Settings() {
           </div>
           <p className="text-sm text-slate-600 mb-4">Manage your local SQLite database backups and optimizations.</p>
           <div className="space-y-3">
-            <button className="w-full bg-blue-50 text-blue-700 hover:bg-blue-100 font-medium py-2 rounded-lg transition-colors text-sm border border-blue-200">
+            <button
+              type="button"
+              onClick={async () => {
+                try {
+                  // @ts-ignore
+                  const api = window.electronAPI;
+                  if (!api?.backupDatabase) { alert('Backup not available'); return; }
+                  const b = await api.backupDatabase();
+                  const blob = new Blob([JSON.stringify(b, null, 2)], { type: 'application/json' });
+                  const url = URL.createObjectURL(blob);
+                  const a = document.createElement('a');
+                  a.href = url; a.download = `erp-backup-${Date.now()}.json`; a.click();
+                  URL.revokeObjectURL(url);
+                  if (api.addAuditLog) await api.addAuditLog({ action: 'BACKUP', entity_type: 'system', details: 'Settings backup' });
+                } catch (e) {
+                  console.error(e);
+                  alert('Backup failed');
+                }
+              }}
+              className="w-full bg-blue-50 text-blue-700 hover:bg-blue-100 font-medium py-2 rounded-lg transition-colors text-sm border border-blue-200"
+            >
               Backup Database Now
             </button>
             <button className="w-full bg-slate-50 text-slate-700 hover:bg-slate-100 font-medium py-2 rounded-lg transition-colors text-sm border border-slate-200">
@@ -139,27 +160,57 @@ export default function Settings() {
             </button>
           </div>
         </div>
-        {/* Company Information */}
+
+        {/* Sessions & Devices */}
+        <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
+          <div className="flex items-center gap-2 mb-4 text-slate-800 font-semibold text-lg border-b border-slate-100 pb-2">
+            <Shield size={20} className="text-blue-500" /> Sessions & Devices
+          </div>
+          <p className="text-sm text-slate-600 mb-3">Active browser/device sessions for this account (client-side registry).</p>
+          <ul className="text-sm space-y-2">
+            <li className="flex justify-between border border-slate-100 rounded-lg px-3 py-2">
+              <span>This device · {navigator.userAgent.includes('Android') ? 'Android' : navigator.userAgent.includes('Electron') ? 'Desktop' : 'Web'}</span>
+              <span className="text-emerald-600 text-xs font-medium">Active</span>
+            </li>
+            <li className="flex justify-between border border-slate-100 rounded-lg px-3 py-2 text-slate-500">
+              <span>Session stored in localStorage (`erp_user`)</span>
+              <button
+                type="button"
+                className="text-red-600 text-xs"
+                onClick={() => {
+                  localStorage.removeItem('erp_user');
+                  alert('Session cleared. Please log in again.');
+                  window.location.href = '/login';
+                }}
+              >
+                Sign out everywhere
+              </button>
+            </li>
+          </ul>
+        </div>
+        {/* Company Information — Owner / Distributor Profile */}
         <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200 col-span-1 md:col-span-2">
           <div className="flex items-center gap-2 mb-4 text-slate-800 font-semibold text-lg border-b border-slate-100 pb-2">
-            <SettingsIcon size={20} className="text-blue-500" /> Company Information
+            <SettingsIcon size={20} className="text-blue-500" /> Distributor / Owner Profile
           </div>
+          <p className="text-sm text-slate-500 mb-4">This ERP system is built for the company below.</p>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div>
+            <div className="sm:col-span-2">
               <label className="block text-sm font-medium text-slate-700 mb-1">Company Name</label>
-              <input type="text" className="w-full px-3 py-2 border border-slate-300 rounded-lg" defaultValue="DMS Wholesale Pvt Ltd" />
+              <input type="text" readOnly className="w-full px-3 py-2 border border-slate-300 rounded-lg bg-slate-50" value={COMPANY.displayName} />
+            </div>
+            <div className="sm:col-span-2">
+              <label className="block text-sm font-medium text-slate-700 mb-1">Business Address</label>
+              <input type="text" readOnly className="w-full px-3 py-2 border border-slate-300 rounded-lg bg-slate-50" value={COMPANY.address} />
             </div>
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Registration No.</label>
-              <input type="text" className="w-full px-3 py-2 border border-slate-300 rounded-lg" defaultValue="PV 123456" />
+              <label className="block text-sm font-medium text-slate-700 mb-1">Contact Number</label>
+              <input type="text" readOnly className="w-full px-3 py-2 border border-slate-300 rounded-lg bg-slate-50" value={COMPANY.phone} />
             </div>
-            <div className="col-span-2">
-              <label className="block text-sm font-medium text-slate-700 mb-1">Address</label>
-              <input type="text" className="w-full px-3 py-2 border border-slate-300 rounded-lg" defaultValue="123 Logistics Avenue, Colombo 03" />
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">Email Address</label>
+              <input type="email" readOnly className="w-full px-3 py-2 border border-slate-300 rounded-lg bg-slate-50" value={COMPANY.email} />
             </div>
-          </div>
-          <div className="mt-4 flex justify-end">
-             <button className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium text-sm transition-colors">Save Details</button>
           </div>
         </div>
 
@@ -297,7 +348,7 @@ export default function Settings() {
       </div>
       
       <div className="mt-8 text-center text-slate-400 text-sm">
-        ERP System Version 1.0.0 &copy; 2026 DMS Wholesale Pvt Ltd
+        {COMPANY.displayName} ERP v1.1.1 &copy; {new Date().getFullYear()} · {COMPANY.email} · {COMPANY.phone}
       </div>
     </div>
   );

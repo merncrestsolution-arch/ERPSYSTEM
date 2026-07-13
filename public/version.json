@@ -1,5 +1,5 @@
 {
-  "version": "1.1.1",
+  "version": "1.2.0",
   "apkUrl": "/erp-app.apk",
-  "notes": "Fixes: mobile invoice printing, map overlapping sidebar, and in-app update check"
+  "notes": "Sierra Cables catalog with meter/roll units (1 roll = 100m), Add Product search, and updated categories"
 }

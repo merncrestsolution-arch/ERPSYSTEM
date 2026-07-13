@@ -340,13 +340,43 @@ function SalesOfficerDashboard({ data }: { data: DashboardData }) {
 // DRIVER DASHBOARD
 // --------------------------------------------------------
 function DriverDashboard() {
+  const [schedules, setSchedules] = useState<any[]>([]);
+  const [visits, setVisits] = useState<any[]>([]);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        // @ts-ignore
+        const api = window.electronAPI;
+        if (!api) return;
+        const today = new Date().toISOString().slice(0, 10);
+        if (api.getDailySchedules) setSchedules(await api.getDailySchedules(today));
+        if (api.getCustomerVisits) setVisits(await api.getCustomerVisits({ date: today }));
+      } catch (e) {
+        console.error(e);
+      }
+    })();
+  }, []);
+
   return (
     <div className="p-4 md:p-8 space-y-8 fade-in">
       <div>
         <h2 className="text-2xl font-bold text-slate-800">Delivery Route (Driver)</h2>
+        <p className="text-slate-500">Today's schedules and completed visits.</p>
       </div>
-      <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
-        <p className="text-slate-500 text-center">Delivery module mobile view coming soon.</p>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
+          <h3 className="font-semibold text-slate-700 mb-3">Today's Schedules</h3>
+          {schedules.length === 0 ? <p className="text-slate-500 text-sm">No schedules for today.</p> : (
+            <ul className="space-y-2 text-sm">{schedules.map((s) => <li key={s.id} className="flex justify-between border-b py-2"><span>{s.route_name}</span><span>{s.status}</span></li>)}</ul>
+          )}
+        </div>
+        <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
+          <h3 className="font-semibold text-slate-700 mb-3">Visits Today</h3>
+          {visits.length === 0 ? <p className="text-slate-500 text-sm">No visits logged yet.</p> : (
+            <ul className="space-y-2 text-sm">{visits.slice(0, 10).map((v) => <li key={v.id} className="border-b py-2">{v.shop_name} — {v.reason}</li>)}</ul>
+          )}
+        </div>
       </div>
     </div>
   );

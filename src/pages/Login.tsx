@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import MadeByMernCrest from '../components/MadeByMernCrest';
+import { COMPANY } from '../lib/companyProfile';
 
 export default function Login() {
   const navigate = useNavigate();
@@ -44,8 +45,9 @@ export default function Login() {
     <div className="flex h-screen w-full items-center justify-center bg-slate-100 p-4">
       <div className="w-full max-w-md bg-white rounded-lg shadow-xl p-6 sm:p-8 border border-slate-200">
         <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-slate-800">ERP System</h1>
-          <p className="text-sm text-slate-500 mt-2">Sign in to your account</p>
+          <p className="text-xs font-semibold uppercase tracking-wider text-blue-700 mb-2">{COMPANY.tradingAs}</p>
+          <h1 className="text-2xl sm:text-3xl font-bold text-slate-800 leading-tight">{COMPANY.legalName}</h1>
+          <p className="text-sm text-slate-500 mt-2">{COMPANY.productName} · Sign in to your account</p>
         </div>
         
         {error && <div className="mb-4 p-3 bg-red-100 text-red-700 text-sm rounded">{error}</div>}

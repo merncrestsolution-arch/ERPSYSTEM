@@ -274,7 +274,10 @@ export const supabaseAPI = {
   },
   getCloudSettings: async () => null, // Deprecated now
   saveCloudSettings: async () => true, // Deprecated now
-  syncToCloud: async () => ({ success: true, timestamp: new Date().toISOString() }), // Deprecated now
+  syncToCloud: async () => {
+    const result = await supabaseAPI.flushSyncOutbox();
+    return result;
+  },
   getUsers: async () => {
     const { data } = await supabase.from('users').select('*');
     return data || [];
@@ -530,5 +533,334 @@ export const supabaseAPI = {
       return [];
     }
     return data || [];
-  }
+  },
+
+  deleteCustomer: async (id: number) => {
+    await supabase.from('customers').delete().eq('id', id);
+    return true;
+  },
+
+  // --- Phase 1: Routes & Visits ---
+  getRoutes: async () => {
+    const { data } = await supabase.from('routes').select('*, users(full_name)');
+    return (data || []).map((d: any) => ({ ...d, assigned_user_name: d.users?.full_name }));
+  },
+  addRoute: async (route: any) => {
+    const { stops, ...info } = route;
+    const { data } = await supabase.from('routes').insert([info]).select().single();
+    if (!data) return null;
+    if (stops?.length) {
+      await supabase.from('route_stops').insert(stops.map((s: any, i: number) => ({
+        route_id: data.id, customer_id: s.customer_id, sequence_no: s.sequence_no ?? i + 1
+      })));
+    }
+    return data.id;
+  },
+  getRouteStops: async (routeId: number) => {
+    const { data } = await supabase.from('route_stops').select('*, customers(shop_name, address, qr_code)').eq('route_id', routeId).order('sequence_no');
+    return (data || []).map((d: any) => ({ ...d, shop_name: d.customers?.shop_name, address: d.customers?.address, qr_code: d.customers?.qr_code }));
+  },
+  updateRouteStops: async (routeId: number, stops: any[]) => {
+    await supabase.from('route_stops').delete().eq('route_id', routeId);
+    if (stops.length) {
+      await supabase.from('route_stops').insert(stops.map((s, i) => ({
+        route_id: routeId, customer_id: s.customer_id, sequence_no: s.sequence_no ?? i + 1
+      })));
+    }
+    return true;
+  },
+  getDailySchedules: async (date?: string) => {
+    let q = supabase.from('daily_schedules').select('*, routes(name)').order('schedule_date', { ascending: false }).limit(50);
+    if (date) q = supabase.from('daily_schedules').select('*, routes(name)').eq('schedule_date', date);
+    const { data } = await q;
+    return (data || []).map((d: any) => ({ ...d, route_name: d.routes?.name }));
+  },
+  addDailySchedule: async (sched: any) => {
+    const { data } = await supabase.from('daily_schedules').insert([sched]).select().single();
+    return data?.id;
+  },
+  getCustomerVisits: async (filters: any = {}) => {
+    let q = supabase.from('customer_visits').select('*, customers(shop_name)').order('visited_at', { ascending: false }).limit(200);
+    if (filters.customer_id) q = q.eq('customer_id', filters.customer_id);
+    const { data } = await q;
+    return (data || []).map((d: any) => ({ ...d, shop_name: d.customers?.shop_name }));
+  },
+  addCustomerVisit: async (visit: any) => {
+    const { data } = await supabase.from('customer_visits').insert([visit]).select().single();
+    return data?.id;
+  },
+  ensureCustomerQr: async (customerId: number) => {
+    const { data: c, error: fetchErr } = await supabase.from('customers').select('*').eq('id', customerId).single();
+    if (fetchErr) {
+      console.error('ensureCustomerQr fetch', fetchErr);
+      throw new Error(fetchErr.message || 'Customer not found');
+    }
+    if (!c) throw new Error('Customer not found');
+    if (c.qr_code) return c.qr_code;
+    const code = `CUST-${customerId}-${Date.now().toString(36).toUpperCase()}`;
+    const { error: updateErr } = await supabase.from('customers').update({ qr_code: code }).eq('id', customerId);
+    if (updateErr) {
+      // Column may be missing until supabase_schema_phases.sql is run — still return a code for display.
+      console.warn('ensureCustomerQr update failed (showing generated code anyway):', updateErr.message);
+      if (/qr_code/i.test(updateErr.message || '')) {
+        console.warn('Run supabase_schema_phases.sql to add customers.qr_code');
+      }
+    }
+    return code;
+  },
+  getCustomerByQr: async (qrCode: string) => {
+    const { data, error } = await supabase.from('customers').select('*').eq('qr_code', qrCode).maybeSingle();
+    if (error) {
+      console.error('getCustomerByQr', error);
+      return null;
+    }
+    return data;
+  },
+  getRouteCompletion: async (scheduleId: number) => {
+    const { data: sched } = await supabase.from('daily_schedules').select('*').eq('id', scheduleId).single();
+    if (!sched) return { total: 0, visited: 0, percent: 0, missed: [] };
+    const { data: stops } = await supabase.from('route_stops').select('*, customers(shop_name)').eq('route_id', sched.route_id);
+    const { data: visits } = await supabase.from('customer_visits').select('customer_id').eq('schedule_id', scheduleId);
+    const visitedIds = new Set((visits || []).map((v: any) => v.customer_id));
+    const stopList = (stops || []).map((s: any) => ({ ...s, shop_name: s.customers?.shop_name }));
+    const visited = stopList.filter((s) => visitedIds.has(s.customer_id)).length;
+    const missed = stopList.filter((s) => !visitedIds.has(s.customer_id));
+    const percent = stopList.length ? Math.round((visited / stopList.length) * 100) : 0;
+    return { total: stopList.length, visited, percent, missed };
+  },
+
+  // --- Phase 2 ---
+  getCategories: async () => { const { data } = await supabase.from('categories').select('*'); return data || []; },
+  addCategory: async (cat: any) => { const { data } = await supabase.from('categories').insert([cat]).select().single(); return data?.id; },
+  deleteCategory: async (id: number) => { await supabase.from('categories').delete().eq('id', id); return true; },
+  getBrands: async () => { const { data } = await supabase.from('brands').select('*'); return data || []; },
+  addBrand: async (brand: any) => { const { data } = await supabase.from('brands').insert([brand]).select().single(); return data?.id; },
+  deleteBrand: async (id: number) => { await supabase.from('brands').delete().eq('id', id); return true; },
+  getWarehouses: async () => { const { data } = await supabase.from('warehouses').select('*'); return data || []; },
+  addWarehouse: async (wh: any) => { const { data } = await supabase.from('warehouses').insert([wh]).select().single(); return data?.id; },
+  getWarehouseStock: async () => {
+    const { data } = await supabase.from('warehouse_stock').select('*, warehouses(name), products(name)');
+    return (data || []).map((d: any) => ({ ...d, warehouse_name: d.warehouses?.name, product_name: d.products?.name }));
+  },
+  addStockTransfer: async (t: any) => {
+    await supabase.from('stock_transfers').insert([t]);
+    const { data: from } = await supabase.from('warehouse_stock').select('*').eq('warehouse_id', t.from_warehouse_id).eq('product_id', t.product_id).maybeSingle();
+    if (from) await supabase.from('warehouse_stock').update({ quantity: (from.quantity || 0) - t.quantity }).eq('id', from.id);
+    const { data: to } = await supabase.from('warehouse_stock').select('*').eq('warehouse_id', t.to_warehouse_id).eq('product_id', t.product_id).maybeSingle();
+    if (to) await supabase.from('warehouse_stock').update({ quantity: (to.quantity || 0) + t.quantity }).eq('id', to.id);
+    else await supabase.from('warehouse_stock').insert([{ warehouse_id: t.to_warehouse_id, product_id: t.product_id, quantity: t.quantity }]);
+    return true;
+  },
+  getStockTransfers: async () => {
+    const { data } = await supabase.from('stock_transfers').select('*, products(name), from:warehouses!stock_transfers_from_warehouse_id_fkey(name), to:warehouses!stock_transfers_to_warehouse_id_fkey(name)').order('created_at', { ascending: false });
+    return (data || []).map((d: any) => ({ ...d, product_name: d.products?.name, from_name: d.from?.name, to_name: d.to?.name }));
+  },
+  getPurchaseOrders: async () => {
+    const { data } = await supabase.from('purchase_orders').select('*, suppliers(name)').order('created_at', { ascending: false });
+    return (data || []).map((d: any) => ({ ...d, supplier_name: d.suppliers?.name }));
+  },
+  addPurchaseOrder: async (poData: any) => {
+    const { items, ...info } = poData;
+    const { data: po } = await supabase.from('purchase_orders').insert([info]).select().single();
+    if (!po) return null;
+    for (const item of items || []) await supabase.from('purchase_order_items').insert([{ ...item, po_id: po.id }]);
+    return po.id;
+  },
+  getPurchaseOrderDetails: async (id: number) => {
+    const { data: po } = await supabase.from('purchase_orders').select('*').eq('id', id).single();
+    if (!po) return null;
+    const { data: items } = await supabase.from('purchase_order_items').select('*, products(name)').eq('po_id', id);
+    return { ...po, items: (items || []).map((i: any) => ({ ...i, product_name: i.products?.name })) };
+  },
+  getPurchaseReturns: async () => {
+    const { data } = await supabase.from('purchase_returns').select('*, suppliers(name)').order('created_at', { ascending: false });
+    return (data || []).map((d: any) => ({ ...d, supplier_name: d.suppliers?.name }));
+  },
+  addPurchaseReturn: async (retData: any) => {
+    const { items, ...info } = retData;
+    const { data: ret } = await supabase.from('purchase_returns').insert([info]).select().single();
+    if (!ret) return null;
+    for (const item of items || []) {
+      await supabase.from('purchase_return_items').insert([{ ...item, return_id: ret.id }]);
+      const { data: p } = await supabase.from('products').select('stock_quantity').eq('id', item.product_id).single();
+      if (p) await supabase.from('products').update({ stock_quantity: (p.stock_quantity || 0) - item.quantity }).eq('id', item.product_id);
+    }
+    const { data: sup } = await supabase.from('suppliers').select('balance').eq('id', info.supplier_id).single();
+    if (sup) await supabase.from('suppliers').update({ balance: (sup.balance || 0) - info.total_amount }).eq('id', info.supplier_id);
+    return ret.id;
+  },
+  getLowStockProducts: async () => {
+    const { data } = await supabase.from('products').select('*');
+    return (data || []).filter((p: any) => (p.stock_quantity || 0) <= (p.low_stock_threshold ?? 10));
+  },
+
+  // --- Phase 3 ---
+  getQuotations: async () => {
+    const { data } = await supabase.from('quotations').select('*, customers(shop_name)').order('created_at', { ascending: false });
+    return (data || []).map((d: any) => ({ ...d, customer_name: d.customers?.shop_name }));
+  },
+  addQuotation: async (qData: any) => {
+    const { items, ...info } = qData;
+    const { data: q } = await supabase.from('quotations').insert([info]).select().single();
+    if (!q) return null;
+    for (const item of items || []) await supabase.from('quotation_items').insert([{ ...item, quotation_id: q.id }]);
+    return q.id;
+  },
+  convertQuotationToSo: async (quotationId: number) => {
+    const { data: q } = await supabase.from('quotations').select('*').eq('id', quotationId).single();
+    if (!q) return null;
+    const { data: items } = await supabase.from('quotation_items').select('*').eq('quotation_id', quotationId);
+    const soNumber = `SO-${Date.now()}`;
+    const { data: so } = await supabase.from('sales_orders').insert([{
+      customer_id: q.customer_id, quotation_id: quotationId, so_number: soNumber,
+      total_amount: q.total_amount, discount: q.discount, net_amount: q.net_amount, status: 'Open'
+    }]).select().single();
+    if (!so) return null;
+    for (const item of items || []) await supabase.from('sales_order_items').insert([{ so_id: so.id, product_id: item.product_id, quantity: item.quantity, selling_price: item.selling_price, total_price: item.total_price }]);
+    await supabase.from('quotations').update({ status: 'Converted' }).eq('id', quotationId);
+    return so.id;
+  },
+  getSalesOrders: async () => {
+    const { data } = await supabase.from('sales_orders').select('*, customers(shop_name)').order('created_at', { ascending: false });
+    return (data || []).map((d: any) => ({ ...d, customer_name: d.customers?.shop_name }));
+  },
+  convertSoToInvoice: async (soId: number) => {
+    const { data: so } = await supabase.from('sales_orders').select('*').eq('id', soId).single();
+    if (!so) return null;
+    const { data: items } = await supabase.from('sales_order_items').select('*').eq('so_id', soId);
+    return supabaseAPI.addSale({
+      customer_id: so.customer_id, invoice_number: `INV-${Date.now()}`, sale_type: 'Credit',
+      total_amount: so.total_amount, discount: so.discount, net_amount: so.net_amount, status: 'Completed',
+      items: (items || []).map((i: any) => ({ product_id: i.product_id, quantity: i.quantity, selling_price: i.selling_price, total_price: i.total_price }))
+    }).then(async (saleId) => {
+      await supabase.from('sales_orders').update({ status: 'Invoiced' }).eq('id', soId);
+      return saleId;
+    });
+  },
+  getDeliveryNotes: async () => {
+    const { data } = await supabase.from('delivery_notes').select('*, customers(shop_name)').order('created_at', { ascending: false });
+    return (data || []).map((d: any) => ({ ...d, customer_name: d.customers?.shop_name }));
+  },
+  addDeliveryNote: async (dn: any) => {
+    const { data } = await supabase.from('delivery_notes').insert([dn]).select().single();
+    return data?.id;
+  },
+  getCustomerPayments: async () => {
+    const { data } = await supabase.from('customer_payments').select('*, customers(shop_name)').order('created_at', { ascending: false });
+    return (data || []).map((d: any) => ({ ...d, customer_name: d.customers?.shop_name }));
+  },
+  addCustomerPayment: async (payment: any) => {
+    const { data } = await supabase.from('customer_payments').insert([payment]).select().single();
+    if (!data) return null;
+    const { data: cust } = await supabase.from('customers').select('outstanding_balance').eq('id', payment.customer_id).single();
+    if (cust) await supabase.from('customers').update({ outstanding_balance: (cust.outstanding_balance || 0) - payment.amount }).eq('id', payment.customer_id);
+    await supabase.from('cash_book').insert([{ entry_type: 'Income', category: 'Customer Payment', description: `Payment from customer #${payment.customer_id}`, amount: payment.amount, entry_date: payment.date }]);
+    return data.id;
+  },
+  getCashBook: async () => { const { data } = await supabase.from('cash_book').select('*').order('entry_date', { ascending: false }); return data || []; },
+  addCashBookEntry: async (entry: any) => { const { data } = await supabase.from('cash_book').insert([entry]).select().single(); return data?.id; },
+  getBankTransactions: async () => { const { data } = await supabase.from('bank_transactions').select('*').order('transaction_date', { ascending: false }); return data || []; },
+  addBankTransaction: async (t: any) => { const { data } = await supabase.from('bank_transactions').insert([t]).select().single(); return data?.id; },
+  getIncomeExpenses: async () => { const { data } = await supabase.from('income_expenses').select('*').order('entry_date', { ascending: false }); return data || []; },
+  addIncomeExpense: async (e: any) => { const { data } = await supabase.from('income_expenses').insert([e]).select().single(); return data?.id; },
+  getPromotions: async () => { const { data } = await supabase.from('promotions').select('*').order('id', { ascending: false }); return data || []; },
+  addPromotion: async (p: any) => { const { data } = await supabase.from('promotions').insert([p]).select().single(); return data?.id; },
+  getCustomerStatement: async (customerId: number) => {
+    const { data: customer } = await supabase.from('customers').select('*').eq('id', customerId).single();
+    const { data: sales } = await supabase.from('sales').select('*').eq('customer_id', customerId).order('created_at');
+    const { data: payments } = await supabase.from('customer_payments').select('*').eq('customer_id', customerId).order('date');
+    const { data: cheques } = await supabase.from('cheques').select('*').eq('customer_id', customerId).order('created_at');
+    return { customer, sales: sales || [], payments: payments || [], cheques: cheques || [] };
+  },
+  getSupplierStatement: async (supplierId: number) => {
+    const { data: supplier } = await supabase.from('suppliers').select('*').eq('id', supplierId).single();
+    const { data: grns } = await supabase.from('grns').select('*').eq('supplier_id', supplierId).order('created_at');
+    const { data: payments } = await supabase.from('supplier_payments').select('*').eq('supplier_id', supplierId).order('date');
+    return { supplier, grns: grns || [], payments: payments || [] };
+  },
+
+  // --- Phase 4 ---
+  getSyncOutbox: async () => { const { data } = await supabase.from('sync_outbox').select('*').order('created_at', { ascending: false }).limit(200); return data || []; },
+  enqueueSync: async (item: any) => {
+    const { data, error } = await supabase.from('sync_outbox').insert([{
+      entity_type: item.entity_type, entity_id: item.entity_id, payload: item.payload, client_uuid: item.client_uuid, status: 'pending'
+    }]).select().single();
+    if (error && /duplicate|unique/i.test(error.message || '')) return { duplicate: true };
+    return data?.id;
+  },
+  flushSyncOutbox: async () => {
+    const { data: pending } = await supabase.from('sync_outbox').select('*').eq('status', 'pending');
+    const now = new Date().toISOString();
+    for (const row of pending || []) {
+      await supabase.from('sync_outbox').update({ status: 'synced', synced_at: now }).eq('id', row.id);
+    }
+    return { success: true, synced: (pending || []).length, timestamp: now };
+  },
+
+  // --- Phase 5 ---
+  getGeofences: async () => { const { data } = await supabase.from('geofences').select('*'); return data || []; },
+  addGeofence: async (g: any) => { const { data } = await supabase.from('geofences').insert([g]).select().single(); return data?.id; },
+  getVehicleExpenses: async (vehicleId?: number) => {
+    let q = supabase.from('vehicle_expenses').select('*, vehicles(registration_number)').order('expense_date', { ascending: false });
+    if (vehicleId) q = q.eq('vehicle_id', vehicleId);
+    const { data } = await q;
+    return (data || []).map((d: any) => ({ ...d, registration_number: d.vehicles?.registration_number }));
+  },
+  addVehicleExpense: async (e: any) => { const { data } = await supabase.from('vehicle_expenses').insert([e]).select().single(); return data?.id; },
+  getVehicleFuel: async (vehicleId?: number) => {
+    let q = supabase.from('vehicle_fuel').select('*, vehicles(registration_number)').order('fuel_date', { ascending: false });
+    if (vehicleId) q = q.eq('vehicle_id', vehicleId);
+    const { data } = await q;
+    return (data || []).map((d: any) => ({ ...d, registration_number: d.vehicles?.registration_number }));
+  },
+  addVehicleFuel: async (f: any) => { const { data } = await supabase.from('vehicle_fuel').insert([f]).select().single(); return data?.id; },
+  getVehicleMaintenance: async (vehicleId?: number) => {
+    let q = supabase.from('vehicle_maintenance').select('*, vehicles(registration_number)').order('service_date', { ascending: false });
+    if (vehicleId) q = q.eq('vehicle_id', vehicleId);
+    const { data } = await q;
+    return (data || []).map((d: any) => ({ ...d, registration_number: d.vehicles?.registration_number }));
+  },
+  addVehicleMaintenance: async (m: any) => { const { data } = await supabase.from('vehicle_maintenance').insert([m]).select().single(); return data?.id; },
+  getLocationPlayback: async (userId: number, from: string, to: string) => {
+    const { data } = await supabase.from('location_logs').select('*').eq('user_id', userId).gte('recorded_at', from).lte('recorded_at', to).order('recorded_at');
+    return data || [];
+  },
+
+  // --- Phase 6 ---
+  addAuditLog: async (log: any) => { const { data } = await supabase.from('audit_logs').insert([log]).select().single(); return data?.id; },
+  getAuditLogs: async () => { const { data } = await supabase.from('audit_logs').select('*').order('created_at', { ascending: false }).limit(500); return data || []; },
+  getNotifications: async (userId?: number) => {
+    let q = supabase.from('notifications').select('*').order('created_at', { ascending: false }).limit(100);
+    if (userId) q = q.or(`user_id.is.null,user_id.eq.${userId}`);
+    const { data } = await q;
+    return data || [];
+  },
+  addNotification: async (n: any) => { const { data } = await supabase.from('notifications').insert([n]).select().single(); return data?.id; },
+  markNotificationRead: async (id: number) => { await supabase.from('notifications').update({ read: true }).eq('id', id); return true; },
+  backupDatabase: async () => {
+    const tables = ['products', 'customers', 'suppliers', 'sales', 'users'];
+    const dump: Record<string, any> = {};
+    for (const t of tables) {
+      const { data } = await supabase.from(t).select('*');
+      dump[t] = data || [];
+    }
+    return { success: true, timestamp: new Date().toISOString(), dump };
+  },
+  getExtendedReport: async (filters: any = {}) => {
+    const from = filters.from || '1970-01-01';
+    const to = filters.to || '2999-12-31';
+    const { data: sales } = await supabase.from('sales').select('*').gte('created_at', from).lte('created_at', to + 'T23:59:59');
+    const { data: purchases } = await supabase.from('grns').select('*').gte('created_at', from).lte('created_at', to + 'T23:59:59');
+    const { data: visits } = await supabase.from('customer_visits').select('*').gte('visited_at', from).lte('visited_at', to + 'T23:59:59');
+    const lowStock = await supabaseAPI.getLowStockProducts();
+    return {
+      salesTotal: (sales || []).reduce((s: number, x: any) => s + (x.net_amount || 0), 0),
+      purchaseTotal: (purchases || []).reduce((s: number, x: any) => s + (x.total_amount || 0), 0),
+      visitCount: (visits || []).length,
+      salesCount: (sales || []).length,
+      lowStock,
+      sales: sales || [],
+      purchases: purchases || []
+    };
+  },
 };
