@@ -11,6 +11,8 @@ import {
   unitShort,
   unitPriceSuffix,
   stockToMeters,
+  priceForPackaging,
+  packagingLabelForItem,
   type ProductUnit,
   type SierraCatalogItem,
 } from '../data/sierraCablesCatalog';
@@ -38,7 +40,16 @@ export default function Products() {
   const [sellingPrice, setSellingPrice] = useState('');
   const [costPrice, setCostPrice] = useState('');
   const [stock, setStock] = useState('');
-  const [unit, setUnit] = useState<ProductUnit>('meter');
+  const [unit, setUnit] = useState<ProductUnit>('roll_100');
+  const [customMeters, setCustomMeters] = useState('75');
+  const [allowedPackaging, setAllowedPackaging] = useState<ProductUnit[]>([
+    'roll_100',
+    'roll_50',
+    'custom',
+  ]);
+  const [priceBasisMeters, setPriceBasisMeters] = useState(100);
+  const [baseListPrice, setBaseListPrice] = useState(0);
+  const [baseCostPrice, setBaseCostPrice] = useState(0);
   const [catalogSearch, setCatalogSearch] = useState('');
   const [catalogCategory, setCatalogCategory] = useState('');
 
@@ -54,6 +65,8 @@ export default function Products() {
       : base;
     return filtered.slice(0, 20);
   }, [catalogSearch, catalogCategory, editingId]);
+
+  const customMetersNum = Math.max(1, parseInt(customMeters, 10) || 1);
 
   const loadProducts = async () => {
     try {
@@ -74,7 +87,12 @@ export default function Products() {
     setSellingPrice('');
     setCostPrice('');
     setStock('0');
-    setUnit('meter');
+    setUnit('roll_100');
+    setCustomMeters('75');
+    setAllowedPackaging(['roll_100', 'roll_50', 'custom']);
+    setPriceBasisMeters(100);
+    setBaseListPrice(0);
+    setBaseCostPrice(0);
     setCatalogSearch('');
     setCatalogCategory('');
   };
@@ -92,28 +110,64 @@ export default function Products() {
     setSellingPrice(product.selling_price.toString());
     setCostPrice((product.cost_price ?? 0).toString());
     setStock(product.stock_quantity.toString());
-    setUnit(parseUnitFromName(product.name));
+    const parsed = parseUnitFromName(product.name);
+    setUnit(parsed.unit);
+    setCustomMeters(String(parsed.customMeters || 75));
+    setAllowedPackaging(['roll_100', 'roll_50', 'coil_10', 'coil_500', 'meter', 'custom']);
+    setPriceBasisMeters(100);
+    setBaseListPrice(product.selling_price);
+    setBaseCostPrice(product.cost_price ?? 0);
     setCatalogSearch('');
     setCatalogCategory('');
     setModalOpen(true);
   };
 
+  const applyPackagingPrices = (
+    nextUnit: ProductUnit,
+    nextCustom: number,
+    basis: number,
+    list: number,
+    cost: number
+  ) => {
+    setSellingPrice(String(priceForPackaging(list, basis, nextUnit, nextCustom)));
+    setCostPrice(String(priceForPackaging(cost, basis, nextUnit, nextCustom)));
+  };
+
   const pickFromCatalog = (item: SierraCatalogItem) => {
     setName(item.name);
     setBarcode(item.sku);
-    setSellingPrice(String(item.listPrice));
-    setCostPrice(String(item.costPrice));
-    setUnit(item.unit);
+    setAllowedPackaging(item.packaging);
+    setPriceBasisMeters(item.priceBasisMeters);
+    setBaseListPrice(item.listPrice);
+    setBaseCostPrice(item.costPrice);
+    setUnit(item.defaultUnit);
+    const meters = item.defaultUnit === 'custom' ? customMetersNum : 1;
+    applyPackagingPrices(item.defaultUnit, meters, item.priceBasisMeters, item.listPrice, item.costPrice);
     if (!stock) setStock('0');
     setCatalogSearch('');
     setCatalogCategory(item.category);
+  };
+
+  const selectUnit = (next: ProductUnit) => {
+    setUnit(next);
+    if (baseListPrice > 0 || baseCostPrice > 0) {
+      applyPackagingPrices(next, customMetersNum, priceBasisMeters, baseListPrice, baseCostPrice);
+    }
+  };
+
+  const onCustomMetersChange = (value: string) => {
+    setCustomMeters(value);
+    const meters = Math.max(1, parseInt(value, 10) || 1);
+    if (unit === 'custom' && (baseListPrice > 0 || baseCostPrice > 0)) {
+      applyPackagingPrices('custom', meters, priceBasisMeters, baseListPrice, baseCostPrice);
+    }
   };
 
   const handleSaveProduct = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
       const payload = {
-        name: withUnitInName(name, unit),
+        name: withUnitInName(name, unit, customMetersNum),
         barcode,
         selling_price: parseFloat(sellingPrice),
         cost_price: parseFloat(costPrice || '0'),
@@ -143,7 +197,9 @@ export default function Products() {
       <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 mb-6">
         <div>
           <h2 className="text-2xl font-bold text-slate-800">Product Management</h2>
-          <p className="text-slate-500">Manage inventory — units are Meter or Roll (1 roll = {METERS_PER_ROLL} m).</p>
+          <p className="text-slate-500">
+            Sierra Cables catalog — (S) Single Core vs (T) Twin Flat · 1 Roll = {METERS_PER_ROLL}M · Custom bobbins
+          </p>
         </div>
         <button
           onClick={openAddModal}
@@ -188,7 +244,7 @@ export default function Products() {
                     (p.barcode && p.barcode.includes(search))
                 )
                 .map((product) => {
-                  const u = parseUnitFromName(product.name);
+                  const { unit: u, customMeters: cm } = parseUnitFromName(product.name);
                   return (
                     <tr key={product.id} className="hover:bg-slate-50 transition-colors">
                       <td data-label="Barcode" className="px-6 py-4 whitespace-nowrap text-sm text-slate-600">
@@ -199,7 +255,7 @@ export default function Products() {
                       </td>
                       <td data-label="Unit" className="px-6 py-4 whitespace-nowrap text-sm">
                         <span className="px-2 py-1 rounded-full text-xs font-medium bg-slate-100 text-slate-700">
-                          {unitLabel(u)}
+                          {unitLabel(u, cm)}
                         </span>
                       </td>
                       <td data-label="Stock" className="px-6 py-4 whitespace-nowrap text-sm">
@@ -209,11 +265,11 @@ export default function Products() {
                           }`}
                         >
                           {product.stock_quantity} {unitShort(u)}
-                          {u === 'roll' ? ` (${stockToMeters(product.stock_quantity, u)} m)` : ''}
+                          {u !== 'meter' ? ` (${stockToMeters(product.stock_quantity, u, cm)} m)` : ''}
                         </span>
                       </td>
                       <td data-label="Selling Price" className="px-6 py-4 whitespace-nowrap text-sm text-slate-600">
-                        LKR {Number(product.selling_price).toFixed(2)} / {unitPriceSuffix(u)}
+                        LKR {Number(product.selling_price).toFixed(2)} / {unitPriceSuffix(u, cm)}
                       </td>
                       <td data-label="Actions" className="px-6 py-4 whitespace-nowrap text-sm text-right flex justify-end gap-2">
                         <button onClick={() => openEditModal(product)} className="text-slate-400 hover:text-blue-600 transition-colors">
@@ -281,7 +337,7 @@ export default function Products() {
                     <input
                       type="text"
                       inputMode="search"
-                      placeholder="Type name, SKU, meter, or roll..."
+                      placeholder="Type SKU, (S), (T), twin, earth, flex..."
                       value={catalogSearch}
                       onChange={(e) => setCatalogSearch(e.target.value)}
                       className="w-full pl-9 pr-3 py-2 border border-slate-300 rounded-md bg-white outline-none focus:ring-blue-500 focus:border-blue-500"
@@ -301,17 +357,24 @@ export default function Products() {
                           <div className="text-sm font-medium text-slate-800 truncate">{item.name}</div>
                           <div className="text-xs text-slate-500 flex flex-wrap gap-x-2">
                             <span>{item.sku}</span>
+                            {item.cableType && (
+                              <span className="font-semibold text-indigo-700">({item.cableType})</span>
+                            )}
                             <span>· {item.category}</span>
-                            <span className="font-semibold text-amber-700">{unitLabel(item.unit)}</span>
+                            <span className="font-semibold text-amber-700">{unitLabel(item.defaultUnit)}</span>
                             <span className="text-blue-700 font-medium">
-                              LKR {item.listPrice.toFixed(2)} / {unitPriceSuffix(item.unit)}
+                              LKR {item.listPrice.toFixed(2)} / {item.priceBasisMeters}m
                             </span>
+                          </div>
+                          <div className="text-[11px] text-slate-400 mt-0.5 truncate">
+                            {packagingLabelForItem(item)}
+                            {item.editableMeters ? ' · editable meters' : ''}
                           </div>
                         </button>
                       ))
                     )}
                   </div>
-                  <p className="text-xs text-slate-500">Tap a cable to auto-fill name, barcode, unit, and prices.</p>
+                  <p className="text-xs text-slate-500">Tap a cable to auto-fill name, SKU, packaging, and prices.</p>
                 </div>
               )}
 
@@ -336,42 +399,46 @@ export default function Products() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Unit</label>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Packaging</label>
                 <div className="grid grid-cols-2 gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setUnit('meter')}
-                    className={`px-3 py-2 rounded-md border text-sm font-medium ${
-                      unit === 'meter'
-                        ? 'bg-blue-600 text-white border-blue-600'
-                        : 'bg-white text-slate-700 border-slate-300'
-                    }`}
-                  >
-                    Meter
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setUnit('roll')}
-                    className={`px-3 py-2 rounded-md border text-sm font-medium ${
-                      unit === 'roll'
-                        ? 'bg-blue-600 text-white border-blue-600'
-                        : 'bg-white text-slate-700 border-slate-300'
-                    }`}
-                  >
-                    Roll ({METERS_PER_ROLL} m)
-                  </button>
+                  {allowedPackaging.map((opt) => (
+                    <button
+                      key={opt}
+                      type="button"
+                      onClick={() => selectUnit(opt)}
+                      className={`px-3 py-2 rounded-md border text-sm font-medium ${
+                        unit === opt
+                          ? 'bg-blue-600 text-white border-blue-600'
+                          : 'bg-white text-slate-700 border-slate-300'
+                      }`}
+                    >
+                      {unitLabel(opt)}
+                    </button>
+                  ))}
                 </div>
+                {unit === 'custom' && (
+                  <div className="mt-2">
+                    <label className="block text-xs font-medium text-slate-600 mb-1">
+                      Custom bobbin length (meters)
+                    </label>
+                    <input
+                      type="number"
+                      min={1}
+                      value={customMeters}
+                      onChange={(e) => onCustomMetersChange(e.target.value)}
+                      className="w-full px-3 py-2 border border-slate-300 rounded-md"
+                    />
+                  </div>
+                )}
                 <p className="text-xs text-slate-500 mt-1">
-                  {unit === 'roll'
-                    ? `1 roll = ${METERS_PER_ROLL} metres. Price and stock are per roll.`
-                    : 'Price and stock are per metre.'}
+                  Price and stock are per {unitPriceSuffix(unit, customMetersNum)}. Confirming GRN adds this packaging to inventory.
                 </p>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-1">
-                    Cost Price (LKR / {unitPriceSuffix(unit)})
+                    Cost Price (LKR / {unitPriceSuffix(unit, customMetersNum)})
                   </label>
                   <input
                     type="number"
@@ -383,7 +450,7 @@ export default function Products() {
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-1">
-                    Selling Price (LKR / {unitPriceSuffix(unit)})
+                    Selling Price (LKR / {unitPriceSuffix(unit, customMetersNum)})
                   </label>
                   <input
                     required
@@ -397,9 +464,9 @@ export default function Products() {
               </div>
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">
-                  Initial Stock ({unit === 'roll' ? 'rolls' : 'meters'})
-                  {unit === 'roll' && stock
-                    ? ` · ${stockToMeters(parseInt(stock, 10) || 0, 'roll')} m total`
+                  Initial Stock ({unitShort(unit)})
+                  {stock
+                    ? ` · ${stockToMeters(parseInt(stock, 10) || 0, unit, customMetersNum)} m total`
                     : ''}
                 </label>
                 <input

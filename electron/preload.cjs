@@ -24,6 +24,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   updateGrtn: (id, data) => ipcRenderer.invoke('update-grtn', id, data),
   getStockAdjustments: () => ipcRenderer.invoke('get-stock-adjustments'),
   addStockAdjustment: (adj) => ipcRenderer.invoke('add-stock-adjustment', adj),
+  getStockMovements: (limit) => ipcRenderer.invoke('get-stock-movements', limit),
   getSales: () => ipcRenderer.invoke('get-sales'),
   getSaleDetails: (id) => ipcRenderer.invoke('get-sale-details', id),
   addSale: (saleData) => ipcRenderer.invoke('add-sale', saleData),

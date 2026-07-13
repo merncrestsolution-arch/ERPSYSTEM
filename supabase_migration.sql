@@ -36,3 +36,35 @@ CREATE INDEX IF NOT EXISTS location_logs_recorded_idx
 -- Level Security ENABLED, which silently blocks the app from inserting GPS
 -- points (HTTP 401). Turn RLS off so it matches the rest of the schema:
 ALTER TABLE public.location_logs DISABLE ROW LEVEL SECURITY;
+
+-- 4) Sierra Cables GRN auto-inventory (packaging + stock movements)
+ALTER TABLE public.grns ADD COLUMN IF NOT EXISTS received_at timestamptz;
+ALTER TABLE public.grns ADD COLUMN IF NOT EXISTS notes text;
+ALTER TABLE public.grns ADD COLUMN IF NOT EXISTS total_meters integer DEFAULT 0;
+
+ALTER TABLE public.grn_items ADD COLUMN IF NOT EXISTS packaging_type text;
+ALTER TABLE public.grn_items ADD COLUMN IF NOT EXISTS quantity_meters integer;
+ALTER TABLE public.grn_items ADD COLUMN IF NOT EXISTS total_meters integer;
+ALTER TABLE public.grn_items ADD COLUMN IF NOT EXISTS item_status text DEFAULT 'Pending';
+ALTER TABLE public.grn_items ADD COLUMN IF NOT EXISTS added_to_inventory_at timestamptz;
+
+CREATE TABLE IF NOT EXISTS public.stock_movements (
+  id                bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  product_id        bigint NOT NULL,
+  movement_type     text NOT NULL,
+  quantity_units    double precision NOT NULL DEFAULT 0,
+  quantity_meters   integer NOT NULL DEFAULT 0,
+  reference         text,
+  notes             text,
+  balance_before    integer,
+  balance_after     integer,
+  created_by        text,
+  created_at        timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS stock_movements_product_idx ON public.stock_movements (product_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS stock_movements_ref_idx ON public.stock_movements (reference);
+
+INSERT INTO public.suppliers (name, contact_person, contact_number, address)
+SELECT 'Sierra Cables PLC', 'Sales Desk', '0112345678', 'Sri Lanka'
+WHERE NOT EXISTS (SELECT 1 FROM public.suppliers WHERE name = 'Sierra Cables PLC');
