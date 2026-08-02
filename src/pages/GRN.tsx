@@ -10,8 +10,11 @@ import {
   GRN_PACKAGING_OPTIONS,
   calcLineTotalMeters,
   defaultPackagingForProduct,
-  metersToStockUnits,
   describeProductPackaging,
+  ensureProductMatchesPackaging,
+  findProductForPackaging,
+  grnLineProductName,
+  stockUnitsForGrnLine,
   type GrnPackagingType,
 } from '../lib/grnInventoryService';
 
@@ -42,8 +45,12 @@ export default function GRN() {
 
   const lineCalc = (item: GrnLine) => {
     const totalMeters = calcLineTotalMeters(item.packaging_type, item.quantity, item.quantity_meters);
-    const product = productById(item.product_id);
-    const stockUnits = product ? metersToStockUnits(product.name, totalMeters) : item.quantity;
+    const stockUnits = stockUnitsForGrnLine(
+      item.packaging_type,
+      item.quantity,
+      totalMeters,
+      item.quantity_meters
+    );
     return { totalMeters, stockUnits, lineTotal: item.quantity * item.cost_price };
   };
 
@@ -137,7 +144,23 @@ export default function GRN() {
 
   const patchItem = (index: number, patch: Partial<GrnLine>) => {
     const next = [...grnItems];
-    next[index] = { ...next[index], ...patch };
+    const merged = { ...next[index], ...patch };
+    if (patch.packaging_type != null && merged.product_id) {
+      const source = productById(merged.product_id);
+      const matched = findProductForPackaging(
+        products,
+        source,
+        merged.packaging_type,
+        merged.quantity_meters
+      );
+      if (matched) {
+        merged.product_id = String(matched.id);
+        if (matched.cost_price != null && patch.cost_price == null) {
+          merged.cost_price = Number(matched.cost_price) || merged.cost_price;
+        }
+      }
+    }
+    next[index] = merged;
     setGrnItems(next);
   };
 
@@ -203,49 +226,62 @@ export default function GRN() {
       ? grns.find((g) => g.id === editingId)?.grn_number
       : `GRN-${new Date().toISOString().slice(0, 10).replace(/-/g, '')}-${Date.now().toString().slice(-3)}`;
 
-    const items = grnItems.map((item) => {
-      const c = lineCalc(item);
-      return {
-        product_id: parseInt(item.product_id, 10),
-        quantity: item.quantity,
-        cost_price: item.cost_price,
-        total_price: c.lineTotal,
-        packaging_type: item.packaging_type,
-        quantity_meters: item.packaging_type === 'Custom Meters' ? item.quantity_meters : null,
-        total_meters: c.totalMeters,
-        stock_units: c.stockUnits,
-      };
-    });
-
-    const payload = {
-      supplier_id: parseInt(supplierId, 10),
-      grn_number: grnNumber,
-      supplier_invoice_no: invoiceNo,
-      total_amount: totals.amount,
-      po_id: poId ? parseInt(poId, 10) : null,
-      status: 'Received',
-      notes,
-      items,
-    };
-
     try {
       // @ts-ignore
-      if (window.electronAPI) {
-        let result: any;
-        if (editingId) {
-          // @ts-ignore
-          result = await window.electronAPI.updateGrn(editingId, payload);
-        } else {
-          // @ts-ignore
-          result = await window.electronAPI.addGrn(payload);
-        }
-        const meters = result?.totalMeters ?? totals.meters;
-        const count = result?.itemsProcessed ?? items.length;
-        setLastResult(`GRN ${grnNumber}: ${count} lines auto-added · ${meters}m to inventory`);
-        await loadData();
-        setModalOpen(false);
-        alert(`Stock received.\n${count} items · ${meters} meters added to inventory.`);
+      const api = window.electronAPI;
+      if (!api) {
+        alert('GRN API unavailable');
+        return;
       }
+
+      // Ensure each line's inventory product name tag matches packaging
+      // (1 Roll → [Roll-100M], 0.5 Roll → [Roll-50M]).
+      let workingProducts = [...products];
+      const resolvedLines: GrnLine[] = [];
+      for (const item of grnItems) {
+        const ensured = await ensureProductMatchesPackaging(api, item, workingProducts);
+        workingProducts = ensured.products;
+        resolvedLines.push({ ...item, product_id: String(ensured.productId) });
+      }
+      setProducts(workingProducts);
+
+      const items = resolvedLines.map((item) => {
+        const c = lineCalc(item);
+        return {
+          product_id: parseInt(item.product_id, 10),
+          quantity: item.quantity,
+          cost_price: item.cost_price,
+          total_price: c.lineTotal,
+          packaging_type: item.packaging_type,
+          quantity_meters: item.packaging_type === 'Custom Meters' ? item.quantity_meters : null,
+          total_meters: c.totalMeters,
+          stock_units: c.stockUnits,
+        };
+      });
+
+      const payload = {
+        supplier_id: parseInt(supplierId, 10),
+        grn_number: grnNumber,
+        supplier_invoice_no: invoiceNo,
+        total_amount: totals.amount,
+        po_id: poId ? parseInt(poId, 10) : null,
+        status: 'Received',
+        notes,
+        items,
+      };
+
+      let result: any;
+      if (editingId) {
+        result = await api.updateGrn(editingId, payload);
+      } else {
+        result = await api.addGrn(payload);
+      }
+      const meters = result?.totalMeters ?? totals.meters;
+      const count = result?.itemsProcessed ?? items.length;
+      setLastResult(`GRN ${grnNumber}: ${count} lines auto-added · ${meters}m to inventory`);
+      await loadData();
+      setModalOpen(false);
+      alert(`Stock received.\n${count} items · ${meters} meters added to inventory.`);
     } catch (err) {
       console.error(err);
       alert('Failed to save GRN');
@@ -441,6 +477,9 @@ export default function GRN() {
                     {grnItems.map((item, index) => {
                       const c = lineCalc(item);
                       const product = productById(item.product_id);
+                      const taggedName = product
+                        ? grnLineProductName(product.name, item.packaging_type, item.quantity_meters)
+                        : '';
                       return (
                         <tr key={index} className="border-b border-slate-200">
                           <td className="p-2">
@@ -465,18 +504,25 @@ export default function GRN() {
                               <option value="">Select Product...</option>
                               {products.map((p) => {
                                 const { unit, customMeters } = parseUnitFromName(p.name);
+                                const tag =
+                                  unit === 'roll_50'
+                                    ? 'Roll-50M'
+                                    : unit === 'roll_100'
+                                      ? 'Roll-100M'
+                                      : describeProductPackaging(p.name);
                                 return (
                                   <option key={p.id} value={p.id}>
                                     {p.barcode ? `${p.barcode} — ` : ''}
-                                    {stripUnitFromName(p.name)} (Stock: {p.stock_quantity} {unitShort(unit)} /{' '}
-                                    {stockToMeters(p.stock_quantity, unit, customMeters)}m)
+                                    {stripUnitFromName(p.name)} [{tag}] (Stock: {p.stock_quantity}{' '}
+                                    {unitShort(unit)} / {stockToMeters(p.stock_quantity, unit, customMeters)}m)
                                   </option>
                                 );
                               })}
                             </select>
                             {product && (
                               <p className="text-[10px] text-slate-500 mt-0.5">
-                                Product pack: {describeProductPackaging(product.name)} · adds {c.stockUnits} stock units
+                                Will save as: <span className="font-medium text-slate-700">{taggedName}</span>
+                                {' · '}adds {c.stockUnits} stock units
                               </p>
                             )}
                           </td>
