@@ -22,6 +22,7 @@ import RoutesPage from './pages/Routes';
 import VisitCheckIn from './pages/VisitCheckIn';
 import InventoryAdvanced from './pages/InventoryAdvanced';
 import SalesFinance from './pages/SalesFinance';
+import CashBook from './pages/CashBook';
 import OfflineSync from './pages/OfflineSync';
 import FleetOps from './pages/FleetOps';
 import AdminHub from './pages/AdminHub';
@@ -55,6 +56,7 @@ function App() {
                 <Route path="sales" element={<Sales />} />
                 <Route path="routes" element={<RoutesPage />} />
                 <Route path="visits" element={<VisitCheckIn />} />
+                <Route path="cash-book" element={<CashBook />} />
                 <Route path="sales-finance" element={<SalesFinance />} />
               </Route>
 
@@ -62,6 +64,7 @@ function App() {
                 <Route path="suppliers" element={<Suppliers />} />
                 <Route path="supplier-payments" element={<SupplierPayments />} />
                 <Route path="cheques" element={<Cheques />} />
+                <Route path="cash-book-acct" element={<CashBook />} />
                 <Route path="sales-finance-acct" element={<SalesFinance />} />
               </Route>
 
