@@ -34,10 +34,8 @@ export function enrichCashBookEntry(entry: CashBookEntry): CashBookEntry {
     const m = desc.match(/^(Cash|Cheque|Transfer|Card)\s*[—\-–]\s*(INV[-\s]?\w+)/i);
     if (m) {
       payment_method = payment_method || m[1];
-      invoice_number = invoice_number || m[2].replace(/\s+/g, '').toUpperCase().replace(/^INV/i, 'INV-').replace('INV--', 'INV-');
-      if (invoice_number && !/^INV-/i.test(invoice_number)) {
-        invoice_number = `INV-${invoice_number.replace(/^INV/i, '')}`;
-      }
+      const rawInv = m[2].replace(/\s+/g, '').toUpperCase();
+      invoice_number = invoice_number || (rawInv.startsWith('INV-') ? rawInv : `INV-${rawInv.replace(/^INV/i, '')}`);
     }
   }
 

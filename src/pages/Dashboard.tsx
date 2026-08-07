@@ -148,6 +148,7 @@ export default function Dashboard() {
               <NavItem icon={<ShoppingCart size={20} />} label="Sales" path="/dashboard/sales" currentPath={location.pathname} navigate={navigate} onClick={() => setSidebarOpen(false)} />
               <NavItem icon={<RouteIcon size={20} />} label="Routes" path="/dashboard/routes" currentPath={location.pathname} navigate={navigate} onClick={() => setSidebarOpen(false)} />
               <NavItem icon={<QrCode size={20} />} label="Visit Check-In" path="/dashboard/visits" currentPath={location.pathname} navigate={navigate} onClick={() => setSidebarOpen(false)} />
+              <NavItem icon={<Wallet size={20} />} label="Cash Book" path="/dashboard/cash-book" currentPath={location.pathname} navigate={navigate} onClick={() => setSidebarOpen(false)} />
               <NavItem icon={<Wallet size={20} />} label="Sales & Finance" path="/dashboard/sales-finance" currentPath={location.pathname} navigate={navigate} onClick={() => setSidebarOpen(false)} />
             </>
           )}
@@ -157,6 +158,7 @@ export default function Dashboard() {
               <NavItem icon={<Users size={20} />} label="Suppliers" path="/dashboard/suppliers" currentPath={location.pathname} navigate={navigate} onClick={() => setSidebarOpen(false)} />
               <NavItem icon={<Banknote size={20} />} label="Sup. Payments" path="/dashboard/supplier-payments" currentPath={location.pathname} navigate={navigate} onClick={() => setSidebarOpen(false)} />
               <NavItem icon={<Banknote size={20} />} label="Cheques" path="/dashboard/cheques" currentPath={location.pathname} navigate={navigate} onClick={() => setSidebarOpen(false)} />
+              <NavItem icon={<Wallet size={20} />} label="Cash Book" path="/dashboard/cash-book-acct" currentPath={location.pathname} navigate={navigate} onClick={() => setSidebarOpen(false)} />
               <NavItem icon={<Wallet size={20} />} label="Finance Hub" path="/dashboard/sales-finance-acct" currentPath={location.pathname} navigate={navigate} onClick={() => setSidebarOpen(false)} />
             </>
           )}
