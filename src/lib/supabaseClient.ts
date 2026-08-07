@@ -18,10 +18,10 @@ function normalizeSupabaseUrl(url: string | undefined): string {
 
 const SUPABASE_URL = normalizeSupabaseUrl(RAW_SUPABASE_URL);
 
-/** True when Vercel/local env is missing — used to show a setup screen instead of a blank white page. */
+/** True when local/server env is missing — used to show a setup screen instead of a blank white page. */
 export const supabaseConfigError =
   !SUPABASE_URL || !SUPABASE_ANON_KEY
-    ? 'Missing Supabase configuration. Set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in the Vercel project Environment Variables, then redeploy.'
+    ? 'Missing Supabase configuration. Set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in the server/build environment, then redeploy.'
     : null;
 
 if (supabaseConfigError) {
