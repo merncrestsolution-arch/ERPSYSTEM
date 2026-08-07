@@ -848,11 +848,49 @@ export const supabaseAPI = {
     if (!data) return null;
     const { data: cust } = await supabase.from('customers').select('outstanding_balance').eq('id', payment.customer_id).single();
     if (cust) await supabase.from('customers').update({ outstanding_balance: (cust.outstanding_balance || 0) - payment.amount }).eq('id', payment.customer_id);
-    await supabase.from('cash_book').insert([{ entry_type: 'Income', category: 'Customer Payment', description: `Payment from customer #${payment.customer_id}`, amount: payment.amount, entry_date: payment.date }]);
+    const method = payment.payment_method || 'Cash';
+    const invoice = payment.invoice_number || null;
+    const receipt = payment.receipt_number || payment.reference_number || null;
+    const collectionType = payment.collection_type || 'Previous Invoice';
+    const desc =
+      payment.notes ||
+      (invoice ? `${method} — ${invoice}` : `Payment from customer #${payment.customer_id}`);
+    await supabase.from('cash_book').insert([{
+      entry_type: 'Income',
+      category: 'Customer Payment',
+      description: desc,
+      amount: payment.amount,
+      entry_date: payment.date,
+      payment_method: method,
+      collection_type: collectionType,
+      invoice_number: invoice,
+      receipt_number: receipt,
+      cheque_id: payment.cheque_id || null,
+      cheque_reference: payment.cheque_reference || null,
+      sale_id: payment.sale_id || null,
+      receipt_id: payment.receipt_id || null,
+    }]);
     return data.id;
   },
   getCashBook: async () => { const { data } = await supabase.from('cash_book').select('*').order('entry_date', { ascending: false }); return data || []; },
-  addCashBookEntry: async (entry: any) => { const { data } = await supabase.from('cash_book').insert([entry]).select().single(); return data?.id; },
+  addCashBookEntry: async (entry: any) => {
+    const { data } = await supabase.from('cash_book').insert([{
+      entry_type: entry.entry_type,
+      category: entry.category || null,
+      description: entry.description || null,
+      amount: entry.amount,
+      entry_date: entry.entry_date,
+      payment_method: entry.payment_method || null,
+      collection_type: entry.collection_type || null,
+      invoice_number: entry.invoice_number || null,
+      receipt_number: entry.receipt_number || null,
+      cheque_id: entry.cheque_id || null,
+      cheque_reference: entry.cheque_reference || null,
+      sale_id: entry.sale_id || null,
+      receipt_id: entry.receipt_id || null,
+    }]).select().single();
+    return data?.id;
+  },
   getBankTransactions: async () => { const { data } = await supabase.from('bank_transactions').select('*').order('transaction_date', { ascending: false }); return data || []; },
   addBankTransaction: async (t: any) => { const { data } = await supabase.from('bank_transactions').insert([t]).select().single(); return data?.id; },
   getIncomeExpenses: async () => { const { data } = await supabase.from('income_expenses').select('*').order('entry_date', { ascending: false }); return data || []; },

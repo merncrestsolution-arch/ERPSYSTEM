@@ -1057,9 +1057,34 @@ app.whenReady().then(() => {
         'INSERT INTO customer_payments (customer_id, payment_method, reference_number, amount, date, notes) VALUES (?, ?, ?, ?, ?, ?)'
       ).run(payment.customer_id, payment.payment_method, payment.reference_number || null, payment.amount, payment.date, payment.notes || null);
       db.prepare('UPDATE customers SET outstanding_balance = outstanding_balance - ? WHERE id = ?').run(payment.amount, payment.customer_id);
+      const method = payment.payment_method || 'Cash';
+      const invoice = payment.invoice_number || null;
+      const receipt = payment.receipt_number || payment.reference_number || null;
+      const collectionType = payment.collection_type || (invoice ? 'Previous Invoice' : 'Previous Invoice');
+      const desc =
+        payment.notes ||
+        (invoice ? `${method} — ${invoice}` : `Payment from customer #${payment.customer_id}`);
       db.prepare(
-        'INSERT INTO cash_book (entry_type, category, description, amount, entry_date) VALUES (?, ?, ?, ?, ?)'
-      ).run('Income', 'Customer Payment', `Payment from customer #${payment.customer_id}`, payment.amount, payment.date);
+        `INSERT INTO cash_book (
+          entry_type, category, description, amount, entry_date,
+          payment_method, collection_type, invoice_number, receipt_number,
+          cheque_id, cheque_reference, sale_id, receipt_id
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+      ).run(
+        'Income',
+        'Customer Payment',
+        desc,
+        payment.amount,
+        payment.date,
+        method,
+        collectionType,
+        invoice,
+        receipt,
+        payment.cheque_id || null,
+        payment.cheque_reference || null,
+        payment.sale_id || null,
+        payment.receipt_id || null
+      );
       return r.lastInsertRowid;
     });
     return tx();
@@ -1067,8 +1092,26 @@ app.whenReady().then(() => {
   ipcMain.handle('get-cash-book', () => getDatabase().prepare('SELECT * FROM cash_book ORDER BY entry_date DESC, id DESC').all());
   ipcMain.handle('add-cash-book-entry', (event, entry) => {
     const r = getDatabase().prepare(
-      'INSERT INTO cash_book (entry_type, category, description, amount, entry_date) VALUES (?, ?, ?, ?, ?)'
-    ).run(entry.entry_type, entry.category || null, entry.description || null, entry.amount, entry.entry_date);
+      `INSERT INTO cash_book (
+        entry_type, category, description, amount, entry_date,
+        payment_method, collection_type, invoice_number, receipt_number,
+        cheque_id, cheque_reference, sale_id, receipt_id
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+    ).run(
+      entry.entry_type,
+      entry.category || null,
+      entry.description || null,
+      entry.amount,
+      entry.entry_date,
+      entry.payment_method || null,
+      entry.collection_type || null,
+      entry.invoice_number || null,
+      entry.receipt_number || null,
+      entry.cheque_id || null,
+      entry.cheque_reference || null,
+      entry.sale_id || null,
+      entry.receipt_id || null
+    );
     return r.lastInsertRowid;
   });
   ipcMain.handle('get-bank-transactions', () => getDatabase().prepare('SELECT * FROM bank_transactions ORDER BY transaction_date DESC').all());

@@ -392,6 +392,14 @@ function initDatabase() {
         description TEXT,
         amount REAL NOT NULL,
         entry_date DATE NOT NULL,
+        payment_method TEXT,
+        collection_type TEXT,
+        invoice_number TEXT,
+        receipt_number TEXT,
+        cheque_id INTEGER,
+        cheque_reference TEXT,
+        sale_id INTEGER,
+        receipt_id INTEGER,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP
       );
 
@@ -536,6 +544,23 @@ function initDatabase() {
 
     if (!columnExists('vehicles', 'assigned_user_id')) {
       try { db.exec('ALTER TABLE vehicles ADD COLUMN assigned_user_id INTEGER'); } catch (e) {}
+    }
+
+    // Cash book collection metadata (invoice / receipt / method / cheque)
+    const cashBookCols = [
+      ['payment_method', 'TEXT'],
+      ['collection_type', 'TEXT'],
+      ['invoice_number', 'TEXT'],
+      ['receipt_number', 'TEXT'],
+      ['cheque_id', 'INTEGER'],
+      ['cheque_reference', 'TEXT'],
+      ['sale_id', 'INTEGER'],
+      ['receipt_id', 'INTEGER'],
+    ];
+    for (const [col, type] of cashBookCols) {
+      if (!columnExists('cash_book', col)) {
+        try { db.exec(`ALTER TABLE cash_book ADD COLUMN ${col} ${type}`); } catch (e) {}
+      }
     }
 
     // GRN packaging / meters (Sierra Cables auto-inventory)
