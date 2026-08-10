@@ -128,12 +128,17 @@ export default function GRN() {
       ? grns.find(g => g.id === editingId)?.grn_number 
       : `GRN-${Date.now().toString().slice(-6)}`;
 
-    const payload = {
+    const invalidItem = grnItems.some((item) => !item.product_id || !item.quantity);
+    if (invalidItem) {
+      alert('Please select a product and quantity for every line');
+      return;
+    }
+
+    const payload: Record<string, unknown> = {
       supplier_id: parseInt(supplierId),
       grn_number: grnNumber,
       supplier_invoice_no: invoiceNo,
       total_amount: totalAmount,
-      po_id: poId ? parseInt(poId) : null,
       items: grnItems.map(item => ({
         product_id: parseInt(item.product_id),
         quantity: item.quantity,
@@ -141,6 +146,8 @@ export default function GRN() {
         total_price: item.quantity * item.cost_price
       }))
     };
+    // Only send po_id when linked; live DB may lack the column until schema phases SQL is run.
+    if (poId) payload.po_id = parseInt(poId);
 
     try {
       // @ts-ignore
@@ -150,14 +157,18 @@ export default function GRN() {
           await window.electronAPI.updateGrn(editingId, payload);
         } else {
           // @ts-ignore
-          await window.electronAPI.addGrn(payload);
+          const newId = await window.electronAPI.addGrn(payload);
+          if (!newId) {
+            alert('Failed to save GRN — server returned no record');
+            return;
+          }
         }
         await loadData();
         setModalOpen(false);
       }
-    } catch (e) {
+    } catch (e: any) {
       console.error(e);
-      alert('Failed to save GRN');
+      alert(e?.message ? `Failed to save GRN: ${e.message}` : 'Failed to save GRN');
     }
   };
 

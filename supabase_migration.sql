@@ -36,3 +36,7 @@ CREATE INDEX IF NOT EXISTS location_logs_recorded_idx
 -- Level Security ENABLED, which silently blocks the app from inserting GPS
 -- points (HTTP 401). Turn RLS off so it matches the rest of the schema:
 ALTER TABLE public.location_logs DISABLE ROW LEVEL SECURITY;
+
+-- 4) Optional PO link on GRNs (used by Receive GRN "From Purchase Order").
+-- Without this column, Create GRN used to fail with PGRST204 when the app sent po_id.
+ALTER TABLE public.grns ADD COLUMN IF NOT EXISTS po_id bigint;
