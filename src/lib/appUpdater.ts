@@ -7,7 +7,7 @@ const ApkUpdater = registerPlugin<any>('ApkUpdater');
 export const APP_VERSION = '1.2.0';
 
 // Where the live deployment (and the published APK) lives.
-const REMOTE_BASE = 'https://electron-app-beta.vercel.app';
+const REMOTE_BASE = 'https://dissanayakeenterprises.store';
 
 export type UpdateInfo = {
   available: boolean;

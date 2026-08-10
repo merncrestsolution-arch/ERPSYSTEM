@@ -538,10 +538,81 @@ function initDatabase() {
       try { db.exec('ALTER TABLE vehicles ADD COLUMN assigned_user_id INTEGER'); } catch (e) {}
     }
 
+    // GRN packaging / meters (Sierra Cables auto-inventory)
+    const grnItemCols = [
+      ['packaging_type', 'TEXT'],
+      ['quantity_meters', 'INTEGER'],
+      ['total_meters', 'INTEGER'],
+      ['item_status', "TEXT DEFAULT 'Pending'"],
+      ['added_to_inventory_at', 'DATETIME'],
+    ];
+    for (const [col, type] of grnItemCols) {
+      if (!columnExists('grn_items', col)) {
+        try { db.exec(`ALTER TABLE grn_items ADD COLUMN ${col} ${type}`); } catch (e) {}
+      }
+    }
+
+    if (!columnExists('grns', 'received_at')) {
+      try { db.exec('ALTER TABLE grns ADD COLUMN received_at DATETIME'); } catch (e) {}
+    }
+    if (!columnExists('grns', 'notes')) {
+      try { db.exec('ALTER TABLE grns ADD COLUMN notes TEXT'); } catch (e) {}
+    }
+    if (!columnExists('grns', 'total_meters')) {
+      try { db.exec('ALTER TABLE grns ADD COLUMN total_meters INTEGER DEFAULT 0'); } catch (e) {}
+    }
+
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS stock_movements (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        product_id INTEGER NOT NULL,
+        movement_type TEXT NOT NULL,
+        quantity_units REAL NOT NULL DEFAULT 0,
+        quantity_meters INTEGER NOT NULL DEFAULT 0,
+        reference TEXT,
+        notes TEXT,
+        balance_before INTEGER,
+        balance_after INTEGER,
+        created_by TEXT,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY(product_id) REFERENCES products(id)
+      );
+    `);
+
     // Ensure a default warehouse exists
     const whCount = db.prepare('SELECT COUNT(*) AS count FROM warehouses').get();
     if (!whCount || whCount.count === 0) {
       db.prepare('INSERT INTO warehouses (name, location, is_default) VALUES (?, ?, ?)').run('Main Warehouse', 'Head Office', 1);
+    }
+
+    // Seed Sierra Cables PLC vendor
+    const sierra = db.prepare("SELECT id FROM suppliers WHERE name = ?").get('Sierra Cables PLC');
+    if (!sierra) {
+      db.prepare(
+        'INSERT INTO suppliers (name, contact_person, contact_number, address) VALUES (?, ?, ?, ?)'
+      ).run('Sierra Cables PLC', 'Sales Desk', '0112345678', 'Sri Lanka');
+    }
+
+    // Seed Sierra category folders used by catalog
+    const sierraCats = [
+      ['Single Core (S)', 'Single core cables SLS 733 — (S)'],
+      ['Twin Flat (T)', 'Twin flat cables SLS 733 — (T)'],
+      ['Cu/XLPE Single Core', 'Cu/XLPE/PVC single core'],
+      ['Flexible Cords', 'Flexible cords — editable bobbins'],
+      ['Earth Cables', 'PVC insulated earth cables'],
+      ['Armoured Power', 'Armoured SWA / XLPE-SWA'],
+      ['Unarmed Power', 'Unarmed power cables'],
+      ['Specialized Cables', 'Battery, welding, solar, auto'],
+    ];
+    const catIns = db.prepare('INSERT OR IGNORE INTO categories (name, description) VALUES (?, ?)');
+    // categories table may not have UNIQUE on name — check first
+    for (const [name, desc] of sierraCats) {
+      const exists = db.prepare('SELECT id FROM categories WHERE name = ?').get(name);
+      if (!exists) {
+        try { catIns.run(name, desc); } catch (e) {
+          try { db.prepare('INSERT INTO categories (name, description) VALUES (?, ?)').run(name, desc); } catch (e2) {}
+        }
+      }
     }
 
     // Seed a default admin (hashed) only if there are no users yet.

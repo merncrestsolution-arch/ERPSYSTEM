@@ -18,10 +18,10 @@ function normalizeSupabaseUrl(url: string | undefined): string {
 
 const SUPABASE_URL = normalizeSupabaseUrl(RAW_SUPABASE_URL);
 
-/** True when Vercel/local env is missing — used to show a setup screen instead of a blank white page. */
+/** True when local/server env is missing — used to show a setup screen instead of a blank white page. */
 export const supabaseConfigError =
   !SUPABASE_URL || !SUPABASE_ANON_KEY
-    ? 'Missing Supabase configuration. Set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in the Vercel project Environment Variables, then redeploy.'
+    ? 'Missing Supabase configuration. Set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in the server/build environment, then redeploy.'
     : null;
 
 if (supabaseConfigError) {
@@ -71,30 +71,65 @@ export const supabaseAPI = {
     return (data || []).map(d => ({ ...d, supplier_name: d.suppliers?.name }));
   },
   addGrn: async (grnData: any) => {
-    // Transaction-like behavior
     const { items, ...grnInfo } = grnData;
-    const { data: grn } = await supabase.from('grns').insert([grnInfo]).select().single();
+    const totalMeters = (items || []).reduce((sum: number, item: any) => sum + (Number(item.total_meters) || 0), 0);
+    const { data: grn } = await supabase
+      .from('grns')
+      .insert([{
+        ...grnInfo,
+        status: grnInfo.status || 'Received',
+        total_meters: totalMeters,
+        received_at: new Date().toISOString(),
+      }])
+      .select()
+      .single();
     if (!grn) return null;
-    
+
     for (const item of items) {
-      await supabase.from('grn_items').insert([{ ...item, grn_id: grn.id }]);
-      // Update stock/cost
+      const stockUnits = Number(item.stock_units != null ? item.stock_units : item.quantity) || 0;
+      const meters = Number(item.total_meters) || 0;
       const { data: product } = await supabase.from('products').select('stock_quantity').eq('id', item.product_id).single();
+      const balanceBefore = product?.stock_quantity || 0;
+
+      await supabase.from('grn_items').insert([{
+        product_id: item.product_id,
+        quantity: item.quantity,
+        cost_price: item.cost_price,
+        total_price: item.total_price,
+        packaging_type: item.packaging_type || null,
+        quantity_meters: item.quantity_meters ?? null,
+        total_meters: meters,
+        item_status: 'Added to Inventory',
+        added_to_inventory_at: new Date().toISOString(),
+        grn_id: grn.id,
+      }]);
+
       if (product) {
-        await supabase.from('products').update({ 
-          stock_quantity: (product.stock_quantity || 0) + item.quantity,
-          cost_price: item.cost_price 
+        await supabase.from('products').update({
+          stock_quantity: balanceBefore + stockUnits,
+          cost_price: item.cost_price,
         }).eq('id', item.product_id);
       }
+
+      await supabase.from('stock_movements').insert([{
+        product_id: item.product_id,
+        movement_type: 'GRN_Received',
+        quantity_units: stockUnits,
+        quantity_meters: meters,
+        reference: grnInfo.grn_number,
+        notes: `${item.quantity} x ${item.packaging_type || 'unit'}`,
+        balance_before: balanceBefore,
+        balance_after: balanceBefore + stockUnits,
+        created_by: grnInfo.created_by || 'SYSTEM',
+      }]);
     }
-    
-    // Update supplier balance
+
     const { data: supplier } = await supabase.from('suppliers').select('balance').eq('id', grnInfo.supplier_id).single();
     if (supplier) {
       await supabase.from('suppliers').update({ balance: (supplier.balance || 0) + grnInfo.total_amount }).eq('id', grnInfo.supplier_id);
     }
-    
-    return grn.id;
+
+    return { grnId: grn.id, totalMeters, itemsProcessed: items.length };
   },
   getGrnDetails: async (id: number) => {
     const { data: grn } = await supabase.from('grns').select('*').eq('id', id).single();
@@ -423,41 +458,94 @@ export const supabaseAPI = {
     return id;
   },
   updateGrn: async (id: number, grnData: any) => {
-    // 1. Revert old GRN impacts
     const { data: oldGrn } = await supabase.from('grns').select('*').eq('id', id).single();
     const { data: oldItems } = await supabase.from('grn_items').select('*').eq('grn_id', id);
-    
+
     if (oldGrn && oldItems) {
       for (const item of oldItems) {
         const { data: p } = await supabase.from('products').select('stock_quantity').eq('id', item.product_id).single();
-        if (p) await supabase.from('products').update({ stock_quantity: (p.stock_quantity || 0) - item.quantity }).eq('id', item.product_id);
+        if (p) {
+          await supabase.from('products').update({ stock_quantity: (p.stock_quantity || 0) - item.quantity }).eq('id', item.product_id);
+        }
+        await supabase.from('stock_movements').insert([{
+          product_id: item.product_id,
+          movement_type: 'GRN_Reversed',
+          quantity_units: -item.quantity,
+          quantity_meters: -(item.total_meters || 0),
+          reference: oldGrn.grn_number,
+          notes: 'GRN edit reverse',
+          created_by: 'SYSTEM',
+        }]);
       }
       const { data: sup } = await supabase.from('suppliers').select('balance').eq('id', oldGrn.supplier_id).single();
       if (sup) await supabase.from('suppliers').update({ balance: (sup.balance || 0) - oldGrn.total_amount }).eq('id', oldGrn.supplier_id);
-      
       await supabase.from('grn_items').delete().eq('grn_id', id);
     }
 
-    // 2. Apply new GRN impacts
     const { items, ...grnInfo } = grnData;
-    await supabase.from('grns').update(grnInfo).eq('id', id);
+    const totalMeters = (items || []).reduce((sum: number, item: any) => sum + (Number(item.total_meters) || 0), 0);
+    await supabase.from('grns').update({
+      ...grnInfo,
+      status: grnInfo.status || 'Received',
+      total_meters: totalMeters,
+    }).eq('id', id);
 
     for (const item of items) {
-      await supabase.from('grn_items').insert([{ ...item, grn_id: id }]);
+      const stockUnits = Number(item.stock_units != null ? item.stock_units : item.quantity) || 0;
+      const meters = Number(item.total_meters) || 0;
       const { data: product } = await supabase.from('products').select('stock_quantity').eq('id', item.product_id).single();
+      const balanceBefore = product?.stock_quantity || 0;
+
+      await supabase.from('grn_items').insert([{
+        product_id: item.product_id,
+        quantity: item.quantity,
+        cost_price: item.cost_price,
+        total_price: item.total_price,
+        packaging_type: item.packaging_type || null,
+        quantity_meters: item.quantity_meters ?? null,
+        total_meters: meters,
+        item_status: 'Added to Inventory',
+        added_to_inventory_at: new Date().toISOString(),
+        grn_id: id,
+      }]);
+
       if (product) {
-        await supabase.from('products').update({ 
-          stock_quantity: (product.stock_quantity || 0) + item.quantity,
-          cost_price: item.cost_price 
+        await supabase.from('products').update({
+          stock_quantity: balanceBefore + stockUnits,
+          cost_price: item.cost_price,
         }).eq('id', item.product_id);
       }
+
+      await supabase.from('stock_movements').insert([{
+        product_id: item.product_id,
+        movement_type: 'GRN_Received',
+        quantity_units: stockUnits,
+        quantity_meters: meters,
+        reference: grnInfo.grn_number,
+        notes: `${item.quantity} x ${item.packaging_type || 'unit'}`,
+        balance_before: balanceBefore,
+        balance_after: balanceBefore + stockUnits,
+        created_by: grnInfo.created_by || 'SYSTEM',
+      }]);
     }
-    
+
     const { data: supplier } = await supabase.from('suppliers').select('balance').eq('id', grnInfo.supplier_id).single();
     if (supplier) {
       await supabase.from('suppliers').update({ balance: (supplier.balance || 0) + grnInfo.total_amount }).eq('id', grnInfo.supplier_id);
     }
-    return id;
+    return { grnId: id, totalMeters, itemsProcessed: items.length };
+  },
+  getStockMovements: async (limit = 100) => {
+    const { data } = await supabase
+      .from('stock_movements')
+      .select('*, products(name, barcode)')
+      .order('created_at', { ascending: false })
+      .limit(limit);
+    return (data || []).map((d: any) => ({
+      ...d,
+      product_name: d.products?.name,
+      product_sku: d.products?.barcode,
+    }));
   },
   updateGrtn: async (id: number, grtnData: any) => {
     // 1. Revert old GRTN impacts

@@ -94,27 +94,72 @@ app.whenReady().then(() => {
   ipcMain.handle('add-grn', (event, grnData) => {
     const db = getDatabase();
     const transaction = db.transaction((data) => {
-      // Create GRN
-      const grnStmt = db.prepare('INSERT INTO grns (supplier_id, grn_number, supplier_invoice_no, total_amount) VALUES (?, ?, ?, ?)');
-      const grnResult = grnStmt.run(data.supplier_id, data.grn_number, data.supplier_invoice_no, data.total_amount);
+      const totalMeters = (data.items || []).reduce((sum, item) => sum + (Number(item.total_meters) || 0), 0);
+      const grnStmt = db.prepare(
+        'INSERT INTO grns (supplier_id, grn_number, supplier_invoice_no, total_amount, status, received_at, notes, total_meters, po_id) VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP, ?, ?, ?)'
+      );
+      const grnResult = grnStmt.run(
+        data.supplier_id,
+        data.grn_number,
+        data.supplier_invoice_no,
+        data.total_amount,
+        data.status || 'Received',
+        data.notes || null,
+        totalMeters,
+        data.po_id || null
+      );
       const grnId = grnResult.lastInsertRowid;
 
-      // Add Items and Update Stock
-      const itemStmt = db.prepare('INSERT INTO grn_items (grn_id, product_id, quantity, cost_price, total_price) VALUES (?, ?, ?, ?, ?)');
+      const itemStmt = db.prepare(
+        `INSERT INTO grn_items (
+          grn_id, product_id, quantity, cost_price, total_price,
+          packaging_type, quantity_meters, total_meters, item_status, added_to_inventory_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)`
+      );
       const stockStmt = db.prepare('UPDATE products SET stock_quantity = stock_quantity + ?, cost_price = ? WHERE id = ?');
-      
+      const balStmt = db.prepare('SELECT stock_quantity FROM products WHERE id = ?');
+      const moveStmt = db.prepare(
+        `INSERT INTO stock_movements (
+          product_id, movement_type, quantity_units, quantity_meters, reference, notes,
+          balance_before, balance_after, created_by
+        ) VALUES (?, 'GRN_Received', ?, ?, ?, ?, ?, ?, ?)`
+      );
+
       for (const item of data.items) {
-        itemStmt.run(grnId, item.product_id, item.quantity, item.cost_price, item.total_price);
-        stockStmt.run(item.quantity, item.cost_price, item.product_id);
+        const meters = Number(item.total_meters) || 0;
+        const stockUnits = Number(item.stock_units != null ? item.stock_units : item.quantity) || 0;
+        const before = balStmt.get(item.product_id);
+        const balanceBefore = before ? before.stock_quantity : 0;
+
+        itemStmt.run(
+          grnId,
+          item.product_id,
+          item.quantity,
+          item.cost_price,
+          item.total_price,
+          item.packaging_type || null,
+          item.quantity_meters != null ? item.quantity_meters : null,
+          meters,
+          'Added to Inventory'
+        );
+        stockStmt.run(stockUnits, item.cost_price, item.product_id);
+        moveStmt.run(
+          item.product_id,
+          stockUnits,
+          meters,
+          data.grn_number,
+          `${item.quantity} x ${item.packaging_type || 'unit'}`,
+          balanceBefore,
+          balanceBefore + stockUnits,
+          data.created_by || 'SYSTEM'
+        );
       }
 
-      // Update Supplier Balance
-      const supStmt = db.prepare('UPDATE suppliers SET balance = balance + ? WHERE id = ?');
-      supStmt.run(data.total_amount, data.supplier_id);
+      db.prepare('UPDATE suppliers SET balance = balance + ? WHERE id = ?').run(data.total_amount, data.supplier_id);
 
-      return grnId;
+      return { grnId, totalMeters, itemsProcessed: data.items.length };
     });
-    
+
     return transaction(grnData);
   });
 
@@ -498,24 +543,94 @@ app.whenReady().then(() => {
       const oldItems = db.prepare('SELECT * FROM grn_items WHERE grn_id = ?').all(id);
       if (oldGrn && oldItems) {
         for (const item of oldItems) {
-          db.prepare('UPDATE products SET stock_quantity = stock_quantity - ? WHERE id = ?').run(item.quantity, item.product_id);
+          const reverseUnits = item.quantity;
+          db.prepare('UPDATE products SET stock_quantity = stock_quantity - ? WHERE id = ?').run(reverseUnits, item.product_id);
+          db.prepare(
+            `INSERT INTO stock_movements (
+              product_id, movement_type, quantity_units, quantity_meters, reference, notes, created_by
+            ) VALUES (?, 'GRN_Reversed', ?, ?, ?, ?, 'SYSTEM')`
+          ).run(item.product_id, -reverseUnits, -(item.total_meters || 0), oldGrn.grn_number, 'GRN edit reverse');
         }
         db.prepare('UPDATE suppliers SET balance = balance - ? WHERE id = ?').run(oldGrn.total_amount, oldGrn.supplier_id);
         db.prepare('DELETE FROM grn_items WHERE grn_id = ?').run(id);
       }
       const { items, ...grnInfo } = data;
+      const totalMeters = (items || []).reduce((sum, item) => sum + (Number(item.total_meters) || 0), 0);
       db.prepare(
-        'UPDATE grns SET supplier_id = ?, grn_number = ?, supplier_invoice_no = ?, total_amount = ?, po_id = COALESCE(?, po_id) WHERE id = ?'
-      ).run(grnInfo.supplier_id, grnInfo.grn_number, grnInfo.supplier_invoice_no, grnInfo.total_amount, grnInfo.po_id || null, id);
-      const itemStmt = db.prepare('INSERT INTO grn_items (grn_id, product_id, quantity, cost_price, total_price) VALUES (?, ?, ?, ?, ?)');
+        'UPDATE grns SET supplier_id = ?, grn_number = ?, supplier_invoice_no = ?, total_amount = ?, po_id = COALESCE(?, po_id), status = ?, total_meters = ?, notes = COALESCE(?, notes) WHERE id = ?'
+      ).run(
+        grnInfo.supplier_id,
+        grnInfo.grn_number,
+        grnInfo.supplier_invoice_no,
+        grnInfo.total_amount,
+        grnInfo.po_id || null,
+        grnInfo.status || 'Received',
+        totalMeters,
+        grnInfo.notes || null,
+        id
+      );
+      const itemStmt = db.prepare(
+        `INSERT INTO grn_items (
+          grn_id, product_id, quantity, cost_price, total_price,
+          packaging_type, quantity_meters, total_meters, item_status, added_to_inventory_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)`
+      );
+      const balStmt = db.prepare('SELECT stock_quantity FROM products WHERE id = ?');
+      const moveStmt = db.prepare(
+        `INSERT INTO stock_movements (
+          product_id, movement_type, quantity_units, quantity_meters, reference, notes,
+          balance_before, balance_after, created_by
+        ) VALUES (?, 'GRN_Received', ?, ?, ?, ?, ?, ?, ?)`
+      );
       for (const item of items) {
-        itemStmt.run(id, item.product_id, item.quantity, item.cost_price, item.total_price);
-        db.prepare('UPDATE products SET stock_quantity = stock_quantity + ?, cost_price = ? WHERE id = ?').run(item.quantity, item.cost_price, item.product_id);
+        const meters = Number(item.total_meters) || 0;
+        const stockUnits = Number(item.stock_units != null ? item.stock_units : item.quantity) || 0;
+        const before = balStmt.get(item.product_id);
+        const balanceBefore = before ? before.stock_quantity : 0;
+        itemStmt.run(
+          id,
+          item.product_id,
+          item.quantity,
+          item.cost_price,
+          item.total_price,
+          item.packaging_type || null,
+          item.quantity_meters != null ? item.quantity_meters : null,
+          meters,
+          'Added to Inventory'
+        );
+        db.prepare('UPDATE products SET stock_quantity = stock_quantity + ?, cost_price = ? WHERE id = ?').run(
+          stockUnits,
+          item.cost_price,
+          item.product_id
+        );
+        moveStmt.run(
+          item.product_id,
+          stockUnits,
+          meters,
+          grnInfo.grn_number,
+          `${item.quantity} x ${item.packaging_type || 'unit'}`,
+          balanceBefore,
+          balanceBefore + stockUnits,
+          grnInfo.created_by || 'SYSTEM'
+        );
       }
       db.prepare('UPDATE suppliers SET balance = balance + ? WHERE id = ?').run(grnInfo.total_amount, grnInfo.supplier_id);
-      return id;
+      return { grnId: id, totalMeters, itemsProcessed: items.length };
     });
     return transaction(grnData);
+  });
+
+  ipcMain.handle('get-stock-movements', (event, limit = 100) => {
+    const db = getDatabase();
+    return db
+      .prepare(
+        `SELECT m.*, p.name as product_name, p.barcode as product_sku
+         FROM stock_movements m
+         JOIN products p ON p.id = m.product_id
+         ORDER BY m.created_at DESC
+         LIMIT ?`
+      )
+      .all(limit);
   });
 
   ipcMain.handle('get-grtn-details', (event, id) => {

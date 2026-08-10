@@ -5,6 +5,7 @@ import { Capacitor } from '@capacitor/core';
 import { Printer, ArrowLeft, Download, Loader2 } from 'lucide-react';
 import { downloadElementAsPdf } from '../lib/pdfExport';
 import { COMPANY } from '../lib/companyProfile';
+import BrandLogo from '../components/BrandLogo';
 
 function money(n: number | null | undefined) {
   return `Rs ${Number(n || 0).toLocaleString('en-LK', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -94,6 +95,7 @@ export default function InvoicePrint() {
       <div id="bill-print-area" ref={billRef} className="bill-container shadow-xl border border-slate-200 print:shadow-none print:border-none">
         {/* Brand bar */}
         <div className="bill-brand">
+          <BrandLogo variant="full" imgClassName="h-16 w-auto mb-2" />
           <div className="bill-brand-name">{COMPANY.legalName}</div>
           <div className="bill-brand-trade">{COMPANY.tradingAs}</div>
         </div>

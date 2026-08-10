@@ -27,7 +27,6 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
-.vercel
 
 # Stray debug APK at repo root (the distributable lives at public/erp-app.apk)
 /app-debug.apk
