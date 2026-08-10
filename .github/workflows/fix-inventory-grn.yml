@@ -1,0 +1,43 @@
+name: Fix inventory GRN movements
+
+on:
+  workflow_dispatch:
+
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Apply GRN movement rebuild on Lightsail
+        env:
+          SSH_KEY: ${{ secrets.LIGHTSAIL_SSH_KEY }}
+          SSH_KEY_B64: ${{ secrets.LIGHTSAIL_SSH_KEY_B64 }}
+          HOST: ${{ secrets.LIGHTSAIL_HOST }}
+          USER: ${{ secrets.LIGHTSAIL_USER }}
+        run: |
+          set -euo pipefail
+          HOST="${HOST:-44.223.82.38}"
+          USER="${USER:-admin}"
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          if [ -n "${SSH_KEY:-}" ]; then
+            printf '%s\n' "$SSH_KEY" > ~/.ssh/lightsail.pem
+          elif [ -n "${SSH_KEY_B64:-}" ]; then
+            echo "$SSH_KEY_B64" | base64 -d > ~/.ssh/lightsail.pem
+          else
+            echo "Missing secret LIGHTSAIL_SSH_KEY or LIGHTSAIL_SSH_KEY_B64"
+            exit 1
+          fi
+          chmod 600 ~/.ssh/lightsail.pem
+          # Fix Windows-style line endings if present
+          sed -i 's/\r$//' ~/.ssh/lightsail.pem
+          ssh -o StrictHostKeyChecking=no -o IdentitiesOnly=yes -i ~/.ssh/lightsail.pem \
+            "${USER}@${HOST}" 'echo connected && hostname'
+
+          scp -o StrictHostKeyChecking=no -o IdentitiesOnly=yes -i ~/.ssh/lightsail.pem \
+            scripts/fix-all-grn-movements-by-sku.sql scripts/audit-inventory-skus.sql \
+            "${USER}@${HOST}:/tmp/"
+
+          ssh -o StrictHostKeyChecking=no -o IdentitiesOnly=yes -i ~/.ssh/lightsail.pem \
+            "${USER}@${HOST}" 'export PGPASSWORD=erp_secret_change_me; psql -h 127.0.0.1 -U erp -d erp -v ON_ERROR_STOP=1 -f /tmp/fix-all-grn-movements-by-sku.sql; psql -h 127.0.0.1 -U erp -d erp -v ON_ERROR_STOP=1 -f /tmp/audit-inventory-skus.sql'
