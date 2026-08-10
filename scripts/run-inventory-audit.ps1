@@ -32,12 +32,12 @@ psql -h 127.0.0.1 -U erp -d erp -v ON_ERROR_STOP=1 -f $remote
   if ($LASTEXITCODE -ne 0) { throw "Remote SQL failed: $RemoteName" }
 }
 
-Write-Host "=== AUDIT inventory SKUs on $HostIp ===" -ForegroundColor Cyan
+Write-Host "=== AUDIT all inventory SKUs on $HostIp ===" -ForegroundColor Cyan
 Invoke-RemoteSql (Join-Path $ScriptDir "audit-inventory-skus.sql") "audit-inventory-skus.sql"
 
 if ($ApplyFix) {
-  Write-Host "=== APPLY Twin Flat movement fix ===" -ForegroundColor Yellow
-  Invoke-RemoteSql (Join-Path $ScriptDir "fix-twin-flat-movements.sql") "fix-twin-flat-movements.sql"
+  Write-Host "=== APPLY full GRN rebuild for ALL packaging/colour SKUs ===" -ForegroundColor Yellow
+  Invoke-RemoteSql (Join-Path $ScriptDir "fix-all-grn-movements-by-sku.sql") "fix-all-grn-movements-by-sku.sql"
   Write-Host "=== RE-AUDIT after fix ===" -ForegroundColor Cyan
   Invoke-RemoteSql (Join-Path $ScriptDir "audit-inventory-skus.sql") "audit-inventory-skus-after.sql"
 }
