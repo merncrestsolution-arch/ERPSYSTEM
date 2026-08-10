@@ -132,3 +132,13 @@ recon AS (
   LEFT JOIN moves m ON m.product_id = p.id
 )
 SELECT status, COUNT(*) FROM recon GROUP BY status ORDER BY status;
+
+\echo ''
+\echo '=== 8) TWIN FLAT 100M / 50M MOVEMENT LINES ==='
+SELECT sm.id, sm.product_id, p.barcode, left(p.name, 45) AS name,
+       sm.movement_type, sm.quantity_units, sm.quantity_meters,
+       sm.reference, sm.notes, sm.created_at
+FROM stock_movements sm
+JOIN products p ON p.id = sm.product_id
+WHERE p.name ILIKE '%Twin Flat 7/0.67%'
+ORDER BY sm.product_id, sm.id;
