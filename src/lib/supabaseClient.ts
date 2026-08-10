@@ -73,27 +73,33 @@ export const supabaseAPI = {
   addGrn: async (grnData: any) => {
     // Transaction-like behavior
     const { items, ...grnInfo } = grnData;
-    const { data: grn } = await supabase.from('grns').insert([grnInfo]).select().single();
+    // Live DB may not have po_id until supabase_schema_phases.sql is applied.
+    // PostgREST rejects unknown columns even when the value is null (PGRST204).
+    if (grnInfo.po_id == null) delete grnInfo.po_id;
+
+    const { data: grn, error } = await supabase.from('grns').insert([grnInfo]).select().single();
+    if (error) throw new Error(error.message || 'Failed to create GRN');
     if (!grn) return null;
-    
+
     for (const item of items) {
-      await supabase.from('grn_items').insert([{ ...item, grn_id: grn.id }]);
+      const { error: itemError } = await supabase.from('grn_items').insert([{ ...item, grn_id: grn.id }]);
+      if (itemError) throw new Error(itemError.message || 'Failed to save GRN items');
       // Update stock/cost
       const { data: product } = await supabase.from('products').select('stock_quantity').eq('id', item.product_id).single();
       if (product) {
-        await supabase.from('products').update({ 
+        await supabase.from('products').update({
           stock_quantity: (product.stock_quantity || 0) + item.quantity,
-          cost_price: item.cost_price 
+          cost_price: item.cost_price
         }).eq('id', item.product_id);
       }
     }
-    
+
     // Update supplier balance
     const { data: supplier } = await supabase.from('suppliers').select('balance').eq('id', grnInfo.supplier_id).single();
     if (supplier) {
       await supabase.from('suppliers').update({ balance: (supplier.balance || 0) + grnInfo.total_amount }).eq('id', grnInfo.supplier_id);
     }
-    
+
     return grn.id;
   },
   getGrnDetails: async (id: number) => {
@@ -440,19 +446,22 @@ export const supabaseAPI = {
 
     // 2. Apply new GRN impacts
     const { items, ...grnInfo } = grnData;
-    await supabase.from('grns').update(grnInfo).eq('id', id);
+    if (grnInfo.po_id == null) delete grnInfo.po_id;
+    const { error: grnError } = await supabase.from('grns').update(grnInfo).eq('id', id);
+    if (grnError) throw new Error(grnError.message || 'Failed to update GRN');
 
     for (const item of items) {
-      await supabase.from('grn_items').insert([{ ...item, grn_id: id }]);
+      const { error: itemError } = await supabase.from('grn_items').insert([{ ...item, grn_id: id }]);
+      if (itemError) throw new Error(itemError.message || 'Failed to save GRN items');
       const { data: product } = await supabase.from('products').select('stock_quantity').eq('id', item.product_id).single();
       if (product) {
-        await supabase.from('products').update({ 
+        await supabase.from('products').update({
           stock_quantity: (product.stock_quantity || 0) + item.quantity,
-          cost_price: item.cost_price 
+          cost_price: item.cost_price
         }).eq('id', item.product_id);
       }
     }
-    
+
     const { data: supplier } = await supabase.from('suppliers').select('balance').eq('id', grnInfo.supplier_id).single();
     if (supplier) {
       await supabase.from('suppliers').update({ balance: (supplier.balance || 0) + grnInfo.total_amount }).eq('id', grnInfo.supplier_id);
