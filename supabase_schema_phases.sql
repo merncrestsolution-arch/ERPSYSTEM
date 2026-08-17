@@ -177,6 +177,14 @@ CREATE TABLE IF NOT EXISTS public.cash_book (
   description text,
   amount double precision NOT NULL,
   entry_date date NOT NULL,
+  payment_method text,
+  collection_type text,
+  invoice_number text,
+  receipt_number text,
+  cheque_id bigint,
+  cheque_reference text,
+  sale_id bigint,
+  receipt_id bigint,
   created_at timestamptz DEFAULT now()
 );
 

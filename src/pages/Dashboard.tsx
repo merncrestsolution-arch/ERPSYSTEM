@@ -29,6 +29,7 @@ import {
 import { useAuth } from '../context/AuthContext';
 import MadeByMernCrest from '../components/MadeByMernCrest';
 import UpdateBanner from '../components/UpdateBanner';
+import BrandLogo from '../components/BrandLogo';
 import { COMPANY } from '../lib/companyProfile';
 
 export default function Dashboard() {
@@ -110,9 +111,20 @@ export default function Dashboard() {
 
       {/* Sidebar Navigation */}
       <aside className={`fixed md:static inset-y-0 left-0 z-50 w-[280px] max-w-[85vw] md:w-64 bg-slate-900 text-slate-300 flex flex-col transition-transform duration-300 ease-in-out ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}`}>
-        <div className="h-16 flex items-center justify-between px-6 border-b border-slate-800">
-          <h1 className="text-base font-bold text-white tracking-wide leading-tight">{COMPANY.shortName}</h1>
-          <button className="md:hidden text-slate-400 hover:text-white" onClick={() => setSidebarOpen(false)}>
+        <div className="h-16 flex items-center justify-between gap-2 px-4 border-b border-slate-800">
+          <div className="flex items-center gap-2 min-w-0">
+            <BrandLogo
+              variant="mark"
+              imgClassName="h-9 w-9 rounded-md bg-white p-0.5 shrink-0"
+            />
+            <div className="min-w-0">
+              <h1 className="text-sm font-bold text-white tracking-wide leading-tight truncate">
+                {COMPANY.shortName}
+              </h1>
+              <p className="text-[10px] text-slate-400 truncate">{COMPANY.productName}</p>
+            </div>
+          </div>
+          <button className="md:hidden text-slate-400 hover:text-white shrink-0" onClick={() => setSidebarOpen(false)}>
             <X size={24} />
           </button>
         </div>
@@ -136,6 +148,7 @@ export default function Dashboard() {
               <NavItem icon={<ShoppingCart size={20} />} label="Sales" path="/dashboard/sales" currentPath={location.pathname} navigate={navigate} onClick={() => setSidebarOpen(false)} />
               <NavItem icon={<RouteIcon size={20} />} label="Routes" path="/dashboard/routes" currentPath={location.pathname} navigate={navigate} onClick={() => setSidebarOpen(false)} />
               <NavItem icon={<QrCode size={20} />} label="Visit Check-In" path="/dashboard/visits" currentPath={location.pathname} navigate={navigate} onClick={() => setSidebarOpen(false)} />
+              <NavItem icon={<Wallet size={20} />} label="Cash Book" path="/dashboard/cash-book" currentPath={location.pathname} navigate={navigate} onClick={() => setSidebarOpen(false)} />
               <NavItem icon={<Wallet size={20} />} label="Sales & Finance" path="/dashboard/sales-finance" currentPath={location.pathname} navigate={navigate} onClick={() => setSidebarOpen(false)} />
             </>
           )}
@@ -145,6 +158,7 @@ export default function Dashboard() {
               <NavItem icon={<Users size={20} />} label="Suppliers" path="/dashboard/suppliers" currentPath={location.pathname} navigate={navigate} onClick={() => setSidebarOpen(false)} />
               <NavItem icon={<Banknote size={20} />} label="Sup. Payments" path="/dashboard/supplier-payments" currentPath={location.pathname} navigate={navigate} onClick={() => setSidebarOpen(false)} />
               <NavItem icon={<Banknote size={20} />} label="Cheques" path="/dashboard/cheques" currentPath={location.pathname} navigate={navigate} onClick={() => setSidebarOpen(false)} />
+              <NavItem icon={<Wallet size={20} />} label="Cash Book" path="/dashboard/cash-book-acct" currentPath={location.pathname} navigate={navigate} onClick={() => setSidebarOpen(false)} />
               <NavItem icon={<Wallet size={20} />} label="Finance Hub" path="/dashboard/sales-finance-acct" currentPath={location.pathname} navigate={navigate} onClick={() => setSidebarOpen(false)} />
             </>
           )}
@@ -199,6 +213,7 @@ export default function Dashboard() {
             <button className="md:hidden text-slate-600 hover:text-slate-900" onClick={toggleSidebar} aria-label="Toggle navigation">
               <Menu size={24} />
             </button>
+            <BrandLogo variant="mark" className="md:hidden" imgClassName="h-8 w-8 rounded bg-white border border-slate-200 p-0.5" />
             <h2 className="text-lg md:text-xl font-semibold text-slate-800 truncate">{COMPANY.displayName}</h2>
           </div>
           <div className="flex items-center space-x-3 md:space-x-6">
